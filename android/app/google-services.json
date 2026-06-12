@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "283768630257",
+    "project_id": "eventxindia-a346a",
+    "storage_bucket": "eventxindia-a346a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283768630257:android:3c87897515adb237fab250",
+        "android_client_info": {
+          "package_name": "com.eventxindia.eventxindia"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBw7qxXB4oShjctxWurOfxD-v7hJjnJZXE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

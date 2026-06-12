@@ -1,0 +1,307 @@
+rules_version = '2';
+
+// EventXIndia Platform — Firestore Security Rules
+//
+// These rules are the backend trust boundary for the current Firebase backend.
+// They mirror the invariants enforced in the pure domain layer (defense in depth)
+// so a compromised or buggy client cannot violate them.
+//
+// IMPORTANT: The Firebase Admin SDK (used by Cloud Functions / trusted services
+// such as EarningsService, MetricsService, NotificationService) bypasses these
+// rules entirely. Therefore any field documented as "trusted backend only"
+// (e.g. vendors.approvalStatus, attendance.accrued, earnings.*, metrics/global,
+// notification delivery fields) is protected here simply by DENYING all client
+// writes to it. The trusted backend still writes it via the Admin SDK.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------
+
+    // A request is authenticated when it carries a verified auth token.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // True when the signed-in user owns the document keyed by `uid`.
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // The requesting user's role, read from their users/{uid} document.
+    // Returns null if the user document does not exist.
+    function userRole() {
+      return isSignedIn()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function isAdmin() {
+      return userRole() == 'admin';
+    }
+
+    // The approvalStatus of the requesting vendor, read from vendors/{uid}.
+    function requesterVendorApprovalStatus() {
+      return get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.approvalStatus;
+    }
+
+    function requesterIsApprovedVendor() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/vendors/$(request.auth.uid))
+        && requesterVendorApprovalStatus() == 'Approved';
+    }
+
+    // Status of an event, used by application/attendance rules.
+    function eventStatus(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.status;
+    }
+
+    // The owning vendor of an event.
+    function eventOwner(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.vendorId;
+    }
+
+    // True when a field is unchanged between the existing doc and the incoming write.
+    function unchanged(field) {
+      return resource.data[field] == request.resource.data[field];
+    }
+
+    // True when the incoming write does NOT introduce the given field at all.
+    function absent(field) {
+      return !(field in request.resource.data);
+    }
+
+    // ---------------------------------------------------------------------
+    // users/{uid}  — a user may read/write only their own document.
+    // `role` is fixed at registration; clients cannot change it afterward
+    // (role changes require Admin / trusted backend). `deviceTokens` is
+    // owner-writable (R13.7).
+    // ---------------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Create: only for self; the role is whatever the user registers as
+      // (student | vendor). Admin accounts are provisioned by the trusted backend.
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['student', 'vendor'];
+
+      // Update: only self, and the role must not change.
+      allow update: if isOwner(uid)
+        && unchanged('role');
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // students/{uid}  — owner may create/read/update own profile.
+    // Admin may read all (R6.4).
+    // ---------------------------------------------------------------------
+    match /students/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid)
+        && request.resource.data.uid == uid;
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // vendors/{uid}  — owner may create/read/update own profile.
+    // `approvalStatus` is NOT client-writable beyond the initial Pending value:
+    //  - On create it must be exactly "Pending" (R2.9: no self-grant of Approved).
+    //  - On update it must remain unchanged (R6.1–6.3: only Admin / trusted
+    //    backend may move Pending -> Approved/Rejected, via the Admin SDK which
+    //    bypasses these rules).
+    // Admin may read all (R6.5).
+    // ---------------------------------------------------------------------
+    match /vendors/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.approvalStatus == 'Pending';
+
+      // Owner may edit their profile but can never change approvalStatus.
+      allow update: if isOwner(uid)
+        && unchanged('approvalStatus');
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // events/{eventId}
+    //  - create: only by the owning vendor (auth.uid == vendorId) AND only when
+    //    that vendor is Approved (R2.10, R5.1); status must start as "Active".
+    //  - update: only by the owning vendor (R5.9). vendorId is immutable.
+    //    (startCode/endCode are part of the doc and writable by the owner.)
+    //  - read: any authenticated user (clients filter to Active events; Admin
+    //    reads all — R8.1, R6.6).
+    //  - delete: owning vendor only.
+    // ---------------------------------------------------------------------
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.vendorId == request.auth.uid
+        && requesterIsApprovedVendor()
+        && request.resource.data.status == 'Active';
+
+      allow update: if isSignedIn()
+        && resource.data.vendorId == request.auth.uid
+        && unchanged('vendorId');
+
+      allow delete: if isSignedIn()
+        && resource.data.vendorId == request.auth.uid;
+    }
+
+    // ---------------------------------------------------------------------
+    // applications/{applicationId}  (doc id == "{eventId}_{studentId}")
+    //  - create: only by the owning student, with a matching composite id, only
+    //    when the target event is Active, and status must be "Pending".
+    //    Firestore `create` fails if the doc already exists, so this also
+    //    enforces dedupe / no duplicate applications (R9.2).
+    //  - update (decision): only by the owning event's vendor, only a
+    //    Pending -> Approved/Rejected transition (R5.4, R5.5, R9.3–9.5).
+    //    Students cannot change their own application status.
+    //  - read: the owning student or the owning event's vendor; Admin reads all.
+    // ---------------------------------------------------------------------
+    match /applications/{applicationId} {
+      allow read: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid
+        || eventOwner(resource.data.eventId) == request.auth.uid
+        || isAdmin()
+      );
+
+      allow create: if isSignedIn()
+        && request.resource.data.studentId == request.auth.uid
+        && applicationId == request.resource.data.eventId + '_' + request.resource.data.studentId
+        && request.resource.data.status == 'Pending'
+        && eventStatus(request.resource.data.eventId) == 'Active';
+
+      // Vendor decision: owner of the event only, Pending -> Approved/Rejected.
+      allow update: if isSignedIn()
+        && eventOwner(resource.data.eventId) == request.auth.uid
+        && resource.data.status == 'Pending'
+        && request.resource.data.status in ['Approved', 'Rejected']
+        && unchanged('eventId')
+        && unchanged('studentId');
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // attendance/{attendanceId}  (doc id == "{eventId}_{studentId}")
+    //  - The owning student may create/update check-in/out fields.
+    //  - `accrued` is NOT client-writable (trusted backend only) — protecting
+    //    exactly-once earnings (R11.1, R11.2). On create it must be absent (or
+    //    the trusted backend sets it later); on update it must not be introduced
+    //    or changed by the client.
+    //  - read: owning student, owning event vendor, or Admin.
+    // ---------------------------------------------------------------------
+    match /attendance/{attendanceId} {
+      allow read: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid
+        || eventOwner(resource.data.eventId) == request.auth.uid
+        || isAdmin()
+      );
+
+      // Student creates their own record; cannot set `accrued`.
+      allow create: if isSignedIn()
+        && request.resource.data.studentId == request.auth.uid
+        && attendanceId == request.resource.data.eventId + '_' + request.resource.data.studentId
+        && absent('accrued');
+
+      // Student updates check-in/out; `accrued` must remain exactly as stored
+      // (i.e. the client cannot add or change it).
+      allow update: if isSignedIn()
+        && resource.data.studentId == request.auth.uid
+        && unchanged('eventId')
+        && unchanged('studentId')
+        && (
+          // accrued not present before and not introduced now, OR
+          (!('accrued' in resource.data) && absent('accrued'))
+          // accrued present before and left unchanged.
+          || (('accrued' in resource.data) && unchanged('accrued'))
+        );
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // earnings/{studentId}
+    //  - read by the owning student and Admin.
+    //  - NO client writes — written only by the trusted EarningsService via the
+    //    Admin SDK (R11.1, R11.2).
+    // ---------------------------------------------------------------------
+    match /earnings/{studentId} {
+      allow read: if isOwner(studentId) || isAdmin();
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // reports/{reportId}
+    //  - create by a Student or Vendor for their own submission, restricted to
+    //    the categories permitted for their role.
+    //  - read by Admin only (R12.6).
+    //  - immutable after creation by clients.
+    // ---------------------------------------------------------------------
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+
+      allow create: if isSignedIn()
+        && request.resource.data.submitterId == request.auth.uid
+        && (
+          (request.resource.data.submitterRole == 'student'
+            && userRole() == 'student'
+            && request.resource.data.category in ['FakeEvent', 'VendorIssue'])
+          ||
+          (request.resource.data.submitterRole == 'vendor'
+            && userRole() == 'vendor'
+            && request.resource.data.category in ['NoShow', 'Misbehavior'])
+        );
+
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // notifications/{notificationId}
+    //  - Recipients may read their own notifications.
+    //  - NO client writes: notifications are created by triggers and their
+    //    delivery fields (deliveryStatus, attemptCount, lastAttemptAt) are owned
+    //    by the trusted NotificationService via the Admin SDK (R12.6 / R13.x).
+    // ---------------------------------------------------------------------
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn()
+        && resource.data.recipientId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // metrics/{docId}  (e.g. metrics/global)
+    //  - read by Admin only.
+    //  - NO client writes — written only by the trusted MetricsService via the
+    //    Admin SDK.
+    // ---------------------------------------------------------------------
+    match /metrics/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // authThrottle/{phone}
+    //  - OTP throttle/lockout bookkeeping is trusted backend state. No client
+    //    access (the client never reads or writes it directly).
+    // ---------------------------------------------------------------------
+    match /authThrottle/{phone} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // Default deny for any collection not explicitly matched above.
+    // ---------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

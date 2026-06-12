@@ -1,0 +1,141 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'bootstrap/device_token_registrar.dart';
+import 'core/data/firebase_initializer.dart';
+import 'core/di/injection.dart';
+import 'features/admin/domain/repositories/admin_repository.dart';
+import 'features/admin/presentation/bloc/admin_bloc.dart';
+import 'features/attendance/presentation/bloc/attendance_bloc.dart';
+import 'features/auth/domain/entities/session_state.dart' as session;
+import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/earnings/presentation/bloc/earnings_bloc.dart';
+import 'features/events/presentation/bloc/event_discovery_bloc.dart';
+import 'features/events/presentation/bloc/event_management_bloc.dart';
+import 'features/profile/domain/repositories/profile_repository.dart';
+import 'features/profile/presentation/bloc/student_profile_cubit.dart';
+import 'features/applications/presentation/bloc/student_applications_cubit.dart';
+import 'routing/app_destination_screen_factory.dart';
+import 'routing/routing.dart';
+
+Future<void> main() async {
+  // Ensure the binding is ready before any async bootstrap work.
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Bring up the Firebase backend before wiring the data layer. The
+  // initializer is idempotent and tolerates a missing generated
+  // `firebase_options.dart`, falling back to the platform's native config.
+  //
+  // When no Firebase configuration is present (e.g. running on an emulator
+  // without `google-services.json` / `GoogleService-Info.plist`), init and DI
+  // wiring can fail. We swallow that here so the app still boots to the auth
+  // screen rather than crashing on launch; the data layer simply won't have a
+  // live backend until configuration is added.
+  try {
+    await initializeFirebase();
+    await configureDependencies();
+  } catch (error, stackTrace) {
+    debugPrint('EventXIndia bootstrap skipped backend wiring: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+
+  runApp(const EventXIndiaApp());
+}
+
+/// Root application widget.
+///
+/// Hosts the app-wide [AuthBloc] (started watching the session) and the
+/// role-based [RoleRouter], which renders the start destination for the current
+/// session (R3.1, R3.4). After authentication it registers this device's FCM
+/// token for push delivery (R13.7).
+class EventXIndiaApp extends StatelessWidget {
+  const EventXIndiaApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'EventXIndia',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        useMaterial3: true,
+      ),
+      home: const _AppRoot(),
+    );
+  }
+}
+
+/// Provides the ambient [AuthBloc] and hosts the role-based router.
+///
+/// The router is decoupled from concrete screens through a
+/// [DestinationScreenFactory]; when DI has been configured we supply the real
+/// [AppDestinationScreenFactory], otherwise (e.g. in the widget smoke test that
+/// pumps [EventXIndiaApp] without bootstrapping) we fall back to the
+/// placeholder factory so the widget tree still builds.
+class _AppRoot extends StatelessWidget {
+  const _AppRoot();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!getIt.isRegistered<AuthBloc>()) {
+      // DI not configured (smoke/widget test): render the router with the
+      // placeholder factory and an inert session source so it does not require
+      // an ambient AuthBloc.
+      return const RoleRouter(sessionStream: Stream<session.SessionState>.empty());
+    }
+
+    return BlocProvider<AuthBloc>(
+      create: (_) => getIt<AuthBloc>()..add(const SessionWatchStarted()),
+      child: const _RoutedApp(),
+    );
+  }
+}
+
+class _RoutedApp extends StatefulWidget {
+  const _RoutedApp();
+
+  @override
+  State<_RoutedApp> createState() => _RoutedAppState();
+}
+
+class _RoutedAppState extends State<_RoutedApp> {
+  late final AppDestinationScreenFactory _factory;
+  late final DeviceTokenRegistrar _tokenRegistrar;
+
+  @override
+  void initState() {
+    super.initState();
+    _factory = AppDestinationScreenFactory(
+      uidProvider: () => FirebaseAuth.instance.currentUser?.uid,
+      profileRepository: getIt<ProfileRepository>(),
+      createEventDiscoveryBloc: () => getIt<EventDiscoveryBloc>(),
+      createStudentApplicationsCubit: () => getIt<StudentApplicationsCubit>(),
+      createAttendanceBloc: () => getIt<AttendanceBloc>(),
+      createStudentProfileCubit: () => getIt<StudentProfileCubit>(),
+      createEarningsBloc: () => getIt<EarningsBloc>(),
+      createEventManagementBloc: () => getIt<EventManagementBloc>(),
+      createAdminBloc: () => getIt<AdminBloc>(),
+    );
+    _tokenRegistrar = DeviceTokenRegistrar(
+      adminRepository: getIt<AdminRepository>(),
+      uidProvider: () => FirebaseAuth.instance.currentUser?.uid,
+      tokenProvider: () => FirebaseMessaging.instance.getToken(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listenWhen: (AuthState previous, AuthState current) =>
+          current is Authenticated && previous is! Authenticated,
+      listener: (BuildContext context, AuthState state) {
+        // Best-effort device-token registration after authentication (R13.7).
+        unawaited(_tokenRegistrar.register());
+      },
+      child: RoleRouter(screenFactory: _factory.build),
+    );
+  }
+}

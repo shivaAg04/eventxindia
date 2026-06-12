@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+lib/
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# Editor / OS
+.DS_Store

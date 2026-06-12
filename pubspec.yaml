@@ -1,0 +1,58 @@
+name: eventxindia
+description: "EventXIndia V1 — Flutter + Firebase event-staffing platform (Clean Architecture + BLoC)."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management (presentation layer)
+  flutter_bloc: ^9.1.1
+  bloc: ^9.0.0
+  equatable: ^2.0.7
+
+  # Dependency injection (composition root)
+  get_it: ^8.0.3
+  injectable: ^2.5.0
+
+  # Firebase (current data-layer backend)
+  firebase_core: ^4.1.1
+  firebase_auth: ^6.1.0
+  cloud_firestore: ^6.0.2
+  firebase_storage: ^13.0.2
+  firebase_messaging: ^16.0.2
+
+  # Location (attendance GPS validation)
+  geolocator: ^14.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # Code generation for injectable DI
+  build_runner: ^2.4.13
+  injectable_generator: ^2.6.2
+
+  # Property-based testing (generator-based QuickCheck-style package)
+  glados: ^1.1.7
+
+  # BLoC and mocking test utilities
+  bloc_test: ^10.0.0
+  mocktail: ^1.0.4
+
+  # In-memory Firestore for data-layer tests (real snapshots, no mocking)
+  fake_cloud_firestore: ^4.0.0
+
+flutter:
+  uses-material-design: true
