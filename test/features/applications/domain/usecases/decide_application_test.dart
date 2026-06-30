@@ -15,7 +15,11 @@ void main() {
   final DateTime fixedNow = DateTime(2025, 1, 1, 9);
   final DateTime laterNow = DateTime(2025, 1, 2, 10);
 
-  Event buildEvent({String vendorId = 'v1'}) {
+  Event buildEvent({
+    String vendorId = 'v1',
+    int slots = 25,
+    int approvedCount = 0,
+  }) {
     return Event(
       eventId: 'e1',
       vendorId: vendorId,
@@ -28,11 +32,12 @@ void main() {
         label: 'Grand Hall',
         geo: GeoPoint(latitude: 12.34, longitude: 56.78),
       ),
-      slots: 25,
+      slots: slots,
       payPerHead: Money.fromMajorUnits(500),
       status: EventStatus.active,
       createdAt: fixedNow,
       updatedAt: fixedNow,
+      approvedCount: approvedCount,
     );
   }
 
@@ -76,6 +81,60 @@ void main() {
       expect(result.valueOrNull!.status, ApplicationStatus.approved);
       expect(result.valueOrNull!.updatedAt, laterNow);
       expect(applications.decided.single.status, ApplicationStatus.approved);
+    });
+
+    test('approving increments the event approved count (seat filled)',
+        () async {
+      final events = FakeEventRepository()
+        ..seed(buildEvent(slots: 2, approvedCount: 0));
+      final applications = FakeApplicationRepository()..seed(buildApplication());
+      final useCase = buildUseCase(applications: applications, events: events);
+
+      await useCase(
+        vendorId: 'v1',
+        applicationId: 'e1_s1',
+        decision: ApplicationDecision.approve,
+      );
+
+      final Event after = (await events.getById('e1')).valueOrNull!;
+      expect(after.approvedCount, 1);
+      expect(after.seatsRemaining, 1);
+    });
+
+    test('cannot approve when the event is already full (capacity guard)',
+        () async {
+      final events = FakeEventRepository()
+        ..seed(buildEvent(slots: 1, approvedCount: 1));
+      final applications = FakeApplicationRepository()..seed(buildApplication());
+      final useCase = buildUseCase(applications: applications, events: events);
+
+      final result = await useCase(
+        vendorId: 'v1',
+        applicationId: 'e1_s1',
+        decision: ApplicationDecision.approve,
+      );
+
+      expect(result.failureOrNull, isA<StateTransitionFailure>());
+      expect(applications.decided, isEmpty);
+      // The full event's count is untouched.
+      expect((await events.getById('e1')).valueOrNull!.approvedCount, 1);
+    });
+
+    test('rejecting a full event is still allowed (no capacity guard on reject)',
+        () async {
+      final events = FakeEventRepository()
+        ..seed(buildEvent(slots: 1, approvedCount: 1));
+      final applications = FakeApplicationRepository()..seed(buildApplication());
+      final useCase = buildUseCase(applications: applications, events: events);
+
+      final result = await useCase(
+        vendorId: 'v1',
+        applicationId: 'e1_s1',
+        decision: ApplicationDecision.reject,
+      );
+
+      expect(result.isOk, isTrue);
+      expect(result.valueOrNull!.status, ApplicationStatus.rejected);
     });
 
     test('rejects a Pending application owned by the vendor (R9.4)', () async {

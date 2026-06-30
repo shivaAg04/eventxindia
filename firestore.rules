@@ -167,8 +167,14 @@ service cloud.firestore {
     //  - read: the owning student or the owning event's vendor; Admin reads all.
     // ---------------------------------------------------------------------
     match /applications/{applicationId} {
+      // A `get` of a non-existent doc has a null `resource`; allow it for any
+      // signed-in user (it simply returns nothing) so the client's
+      // create-if-absent transaction can check existence before writing. Reads
+      // of an EXISTING application stay restricted to the owning student, the
+      // owning event's vendor, or an Admin.
       allow read: if isSignedIn() && (
-        resource.data.studentId == request.auth.uid
+        resource == null
+        || resource.data.studentId == request.auth.uid
         || eventOwner(resource.data.eventId) == request.auth.uid
         || isAdmin()
       );
@@ -200,8 +206,14 @@ service cloud.firestore {
     //  - read: owning student, owning event vendor, or Admin.
     // ---------------------------------------------------------------------
     match /attendance/{attendanceId} {
+      // A `get` of a non-existent doc has a null `resource`; allow it for any
+      // signed-in user (it returns nothing) so the client's create-if-absent
+      // check-in transaction can test existence before writing. Reads of an
+      // EXISTING record stay restricted to the owning student, the owning
+      // event's vendor, or an Admin.
       allow read: if isSignedIn() && (
-        resource.data.studentId == request.auth.uid
+        resource == null
+        || resource.data.studentId == request.auth.uid
         || eventOwner(resource.data.eventId) == request.auth.uid
         || isAdmin()
       );

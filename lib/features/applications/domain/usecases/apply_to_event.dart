@@ -3,6 +3,8 @@ import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/event_status.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../events/domain/repositories/event_repository.dart';
+import '../../../profile/domain/entities/student.dart';
+import '../../../profile/domain/repositories/profile_repository.dart';
 import '../entities/application.dart';
 import '../repositories/application_repository.dart';
 
@@ -31,13 +33,16 @@ class ApplyToEvent {
   const ApplyToEvent({
     required EventRepository eventRepository,
     required ApplicationRepository applicationRepository,
+    required ProfileRepository profileRepository,
     required DateTime Function() now,
   })  : _eventRepository = eventRepository,
         _applicationRepository = applicationRepository,
+        _profileRepository = profileRepository,
         _now = now;
 
   final EventRepository _eventRepository;
   final ApplicationRepository _applicationRepository;
+  final ProfileRepository _profileRepository;
   final DateTime Function() _now;
 
   /// Applies [studentId] to the event identified by [eventId].
@@ -67,10 +72,25 @@ class ApplyToEvent {
       );
     }
 
+    // Snapshot the applying student's profile onto the application so the owning
+    // vendor can identify the candidate from the application alone, without
+    // being granted read access to the student's private profile document. A
+    // profile read failure must not block applying, so the snapshot is
+    // best-effort (the fields stay null).
+    final Student? student =
+        (await _profileRepository.getStudent(studentId)).valueOrNull;
+
     final Application application = Application.create(
       eventId: eventId,
       studentId: studentId,
       now: _now(),
+      applicantName: student?.fullName,
+      applicantPhone: student?.phone.e164,
+      applicantCity: student?.city,
+      eventTitle: event.title,
+      eventLocation: event.location.label,
+      eventPayMinorUnits: event.payPerHead.minorUnits,
+      eventDate: event.date,
     );
 
     return _applicationRepository.create(application);

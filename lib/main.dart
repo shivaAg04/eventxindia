@@ -4,13 +4,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'bootstrap/device_token_registrar.dart';
 import 'core/data/firebase_initializer.dart';
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
 import 'features/admin/domain/repositories/admin_repository.dart';
 import 'features/admin/presentation/bloc/admin_bloc.dart';
+import 'features/applications/presentation/bloc/application_bloc.dart';
 import 'features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'features/auth/domain/entities/session_state.dart' as session;
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -122,6 +122,7 @@ class _RoutedAppState extends State<_RoutedApp> {
       uidProvider: () => FirebaseAuth.instance.currentUser?.uid,
       profileRepository: getIt<ProfileRepository>(),
       createEventDiscoveryBloc: () => getIt<EventDiscoveryBloc>(),
+      createApplicationBloc: () => getIt<ApplicationBloc>(),
       createStudentApplicationsCubit: () => getIt<StudentApplicationsCubit>(),
       createAttendanceBloc: () => getIt<AttendanceBloc>(),
       createStudentProfileCubit: () => getIt<StudentProfileCubit>(),

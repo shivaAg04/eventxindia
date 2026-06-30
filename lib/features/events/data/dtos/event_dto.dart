@@ -43,6 +43,7 @@ class EventDto {
     required this.updatedAt,
     this.startCode,
     this.endCode,
+    this.approvedCount = 0,
   });
 
   /// The unique identifier of the event (matches the document id).
@@ -81,6 +82,10 @@ class EventDto {
   /// The event status wire-name (`Active` | `Closed` | `Completed`).
   final String status;
 
+  /// The number of approved applicants; defaults to 0 for documents written
+  /// before this field existed.
+  final int approvedCount;
+
   /// The attendance check-in code, or `null` until generated.
   final String? startCode;
 
@@ -111,6 +116,7 @@ class EventDto {
       slots: (data['slots'] as num).toInt(),
       payPerHeadMinorUnits: (data['payPerHead'] as num).toInt(),
       status: data['status'] as String,
+      approvedCount: (data['approvedCount'] as num?)?.toInt() ?? 0,
       startCode: data['startCode'] as String?,
       endCode: data['endCode'] as String?,
       createdAt: (data['createdAt'] as fs.Timestamp).toDate(),
@@ -136,6 +142,7 @@ class EventDto {
       slots: event.slots,
       payPerHeadMinorUnits: event.payPerHead.minorUnits,
       status: event.status.wireName,
+      approvedCount: event.approvedCount,
       startCode: event.startCode,
       endCode: event.endCode,
       createdAt: event.createdAt,
@@ -164,6 +171,7 @@ class EventDto {
       'slots': slots,
       'payPerHead': payPerHeadMinorUnits,
       'status': status,
+      'approvedCount': approvedCount,
       if (startCode != null) 'startCode': startCode,
       if (endCode != null) 'endCode': endCode,
       'createdAt': fs.Timestamp.fromDate(createdAt),
@@ -191,6 +199,7 @@ class EventDto {
       slots: slots,
       payPerHead: Money.fromMinorUnits(payPerHeadMinorUnits),
       status: EventStatusX.parse(status),
+      approvedCount: approvedCount,
       startCode: startCode,
       endCode: endCode,
       createdAt: createdAt,

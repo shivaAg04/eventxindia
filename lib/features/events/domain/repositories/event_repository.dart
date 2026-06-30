@@ -57,4 +57,12 @@ abstract class EventRepository {
     EventCodeKind kind,
     String code,
   );
+
+  /// Sets the event's approved-applicant count to [approvedCount], returning the
+  /// updated event. Used when a vendor approves an applicant to keep the
+  /// remaining-seat count current and enforce capacity.
+  Future<Result<Event, Failure>> setApprovedCount(
+    String eventId,
+    int approvedCount,
+  );
 }

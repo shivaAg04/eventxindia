@@ -21,6 +21,13 @@ extension ApplicationDtoX on ApplicationDto {
         eventId: eventId,
         studentId: studentId,
         status: ApplicationStatusX.parse(status),
+        applicantName: applicantName,
+        applicantPhone: applicantPhone,
+        applicantCity: applicantCity,
+        eventTitle: eventTitle,
+        eventLocation: eventLocation,
+        eventPayMinorUnits: eventPayMinorUnits,
+        eventDate: eventDate?.toDate(),
         createdAt: createdAt.toDate(),
         updatedAt: updatedAt.toDate(),
       );
@@ -37,6 +44,14 @@ extension ApplicationEntityX on Application {
         eventId: eventId,
         studentId: studentId,
         status: status.wireName,
+        applicantName: applicantName,
+        applicantPhone: applicantPhone,
+        applicantCity: applicantCity,
+        eventTitle: eventTitle,
+        eventLocation: eventLocation,
+        eventPayMinorUnits: eventPayMinorUnits,
+        eventDate:
+            eventDate == null ? null : Timestamp.fromDate(eventDate!),
         createdAt: Timestamp.fromDate(createdAt),
         updatedAt: Timestamp.fromDate(updatedAt),
       );

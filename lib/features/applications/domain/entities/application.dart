@@ -20,6 +20,13 @@ class Application extends Equatable {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.applicantName,
+    this.applicantPhone,
+    this.applicantCity,
+    this.eventTitle,
+    this.eventLocation,
+    this.eventPayMinorUnits,
+    this.eventDate,
   });
 
   /// Creates a brand-new application for [studentId] against [eventId].
@@ -28,10 +35,22 @@ class Application extends Equatable {
   /// `"{eventId}_{studentId}"` and the [status] is set to
   /// [ApplicationStatus.pending] per R9.1. The [createdAt] and [updatedAt]
   /// timestamps are both initialised to [now].
+  ///
+  /// The optional [applicantName]/[applicantPhone]/[applicantCity] are a
+  /// snapshot of the applying student's profile taken at apply time, so the
+  /// owning vendor can identify the candidate from the application alone
+  /// without reading the student's private profile document.
   factory Application.create({
     required String eventId,
     required String studentId,
     required DateTime now,
+    String? applicantName,
+    String? applicantPhone,
+    String? applicantCity,
+    String? eventTitle,
+    String? eventLocation,
+    int? eventPayMinorUnits,
+    DateTime? eventDate,
   }) {
     return Application(
       applicationId: buildId(eventId: eventId, studentId: studentId),
@@ -40,6 +59,13 @@ class Application extends Equatable {
       status: ApplicationStatus.pending,
       createdAt: now,
       updatedAt: now,
+      applicantName: applicantName,
+      applicantPhone: applicantPhone,
+      applicantCity: applicantCity,
+      eventTitle: eventTitle,
+      eventLocation: eventLocation,
+      eventPayMinorUnits: eventPayMinorUnits,
+      eventDate: eventDate,
     );
   }
 
@@ -58,6 +84,24 @@ class Application extends Equatable {
   /// The current review status of the application.
   final ApplicationStatus status;
 
+  /// The applying student's full name at apply time; `null` for records created
+  /// before this snapshot was introduced.
+  final String? applicantName;
+
+  /// The applying student's phone (E.164) at apply time; `null` when unknown.
+  final String? applicantPhone;
+
+  /// The applying student's city at apply time; `null` when unknown.
+  final String? applicantCity;
+
+  /// Snapshot of the event's display fields at apply time, so the student's
+  /// applied/approved lists can show the event by name and detail without a
+  /// second read. `null` on records created before this was introduced.
+  final String? eventTitle;
+  final String? eventLocation;
+  final int? eventPayMinorUnits;
+  final DateTime? eventDate;
+
   /// When the application was created.
   final DateTime createdAt;
 
@@ -75,6 +119,13 @@ class Application extends Equatable {
   Application copyWith({
     ApplicationStatus? status,
     DateTime? updatedAt,
+    String? applicantName,
+    String? applicantPhone,
+    String? applicantCity,
+    String? eventTitle,
+    String? eventLocation,
+    int? eventPayMinorUnits,
+    DateTime? eventDate,
   }) {
     return Application(
       applicationId: applicationId,
@@ -83,6 +134,13 @@ class Application extends Equatable {
       status: status ?? this.status,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      applicantName: applicantName ?? this.applicantName,
+      applicantPhone: applicantPhone ?? this.applicantPhone,
+      applicantCity: applicantCity ?? this.applicantCity,
+      eventTitle: eventTitle ?? this.eventTitle,
+      eventLocation: eventLocation ?? this.eventLocation,
+      eventPayMinorUnits: eventPayMinorUnits ?? this.eventPayMinorUnits,
+      eventDate: eventDate ?? this.eventDate,
     );
   }
 
@@ -94,6 +152,13 @@ class Application extends Equatable {
         status,
         createdAt,
         updatedAt,
+        applicantName,
+        applicantPhone,
+        applicantCity,
+        eventTitle,
+        eventLocation,
+        eventPayMinorUnits,
+        eventDate,
       ];
 
   @override

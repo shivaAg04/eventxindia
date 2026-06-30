@@ -7,6 +7,9 @@ import 'package:eventxindia/features/applications/domain/entities/application.da
 import 'package:eventxindia/features/applications/domain/repositories/application_repository.dart';
 import 'package:eventxindia/features/events/domain/entities/event.dart';
 import 'package:eventxindia/features/events/domain/repositories/event_repository.dart';
+import 'package:eventxindia/features/profile/domain/entities/student.dart';
+import 'package:eventxindia/features/profile/domain/entities/vendor.dart';
+import 'package:eventxindia/features/profile/domain/repositories/profile_repository.dart';
 
 /// An in-memory [EventRepository] fake for use-case tests.
 class FakeEventRepository implements EventRepository {
@@ -73,6 +76,20 @@ class FakeEventRepository implements EventRepository {
     _events[eventId] = updated;
     return Result<Event, Failure>.ok(updated);
   }
+
+  @override
+  Future<Result<Event, Failure>> setApprovedCount(
+    String eventId,
+    int approvedCount,
+  ) async {
+    final Event? event = _events[eventId];
+    if (event == null) {
+      return const Result<Event, Failure>.err(NotFoundFailure());
+    }
+    final Event updated = event.copyWith(approvedCount: approvedCount);
+    _events[eventId] = updated;
+    return Result<Event, Failure>.ok(updated);
+  }
 }
 
 /// An in-memory [ApplicationRepository] fake for use-case tests.
@@ -135,4 +152,38 @@ class FakeApplicationRepository implements ApplicationRepository {
       Stream<List<Application>>.value(_applications.values
           .where((Application a) => a.studentId == studentId)
           .toList());
+}
+
+/// An in-memory [ProfileRepository] fake for use-case tests.
+///
+/// Only the [getStudent] read is exercised by the application use cases (for the
+/// apply-time profile snapshot); unseeded students return a [NotFoundFailure]
+/// so the snapshot is simply omitted.
+class FakeProfileRepository implements ProfileRepository {
+  final Map<String, Student> _students = <String, Student>{};
+
+  /// Seeds the repository with [student], keyed by uid.
+  void seedStudent(Student student) => _students[student.uid] = student;
+
+  @override
+  Future<Result<Student, Failure>> getStudent(String uid) async {
+    final Student? student = _students[uid];
+    return student == null
+        ? const Result<Student, Failure>.err(NotFoundFailure())
+        : Result<Student, Failure>.ok(student);
+  }
+
+  @override
+  Future<Result<Student, Failure>> createStudent(Student student) async {
+    _students[student.uid] = student;
+    return Result<Student, Failure>.ok(student);
+  }
+
+  @override
+  Future<Result<Vendor, Failure>> getVendor(String uid) async =>
+      const Result<Vendor, Failure>.err(NotFoundFailure());
+
+  @override
+  Future<Result<Vendor, Failure>> createVendor(Vendor vendor) async =>
+      Result<Vendor, Failure>.ok(vendor);
 }

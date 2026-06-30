@@ -26,6 +26,7 @@ import '../../features/auth/domain/usecases/sign_out.dart';
 import '../../features/auth/domain/usecases/verify_otp.dart';
 import '../../features/auth/domain/usecases/watch_session.dart';
 import '../../features/events/domain/repositories/event_repository.dart';
+import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/events/domain/usecases/change_event_status.dart';
 import '../../features/events/domain/usecases/create_event.dart';
 import '../../features/events/domain/usecases/get_event.dart';
@@ -106,10 +107,12 @@ abstract class UseCaseModule {
   ApplyToEvent applyToEvent(
     EventRepository eventRepository,
     ApplicationRepository applicationRepository,
+    ProfileRepository profileRepository,
   ) =>
       ApplyToEvent(
         eventRepository: eventRepository,
         applicationRepository: applicationRepository,
+        profileRepository: profileRepository,
         now: DateTime.now,
       );
 

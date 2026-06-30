@@ -34,6 +34,7 @@ class Event extends Equatable {
     required this.updatedAt,
     this.startCode,
     this.endCode,
+    this.approvedCount = 0,
   });
 
   /// The maximum number of characters allowed in a [title].
@@ -82,6 +83,18 @@ class Event extends Equatable {
   /// The current lifecycle status; [EventStatus.active] on creation (R7.6).
   final EventStatus status;
 
+  /// The number of applications a vendor has approved for this event. Starts at
+  /// 0 and is incremented as the owning vendor approves applicants; it can never
+  /// exceed [slots] (capacity is enforced when approving).
+  final int approvedCount;
+
+  /// The number of unfilled slots remaining (never negative).
+  int get seatsRemaining =>
+      (slots - approvedCount) < 0 ? 0 : slots - approvedCount;
+
+  /// Whether every slot has been filled by an approved applicant.
+  bool get isFull => approvedCount >= slots;
+
   /// The attendance check-in code, set when the owning vendor generates it
   /// (R5.6, R10.2). `null` until generated.
   final String? startCode;
@@ -114,6 +127,7 @@ class Event extends Equatable {
     String? startCode,
     String? endCode,
     DateTime? updatedAt,
+    int? approvedCount,
   }) {
     return Event(
       eventId: eventId,
@@ -131,6 +145,7 @@ class Event extends Equatable {
       endCode: endCode ?? this.endCode,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      approvedCount: approvedCount ?? this.approvedCount,
     );
   }
 
@@ -151,6 +166,7 @@ class Event extends Equatable {
         endCode,
         createdAt,
         updatedAt,
+        approvedCount,
       ];
 
   @override

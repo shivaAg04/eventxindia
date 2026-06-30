@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -nA4 \"function eventStatus\\\\|function eventOwner\" firestore.rules)",
+      "Bash(grep -nA12 \"match /students/\" firestore.rules)",
+      "Bash(echo \"launched pid $!\")",
+      "Bash(echo \"launched preview pid $!\")",
+      "Bash(grep -aB1 \"\\\\[E\\\\]\")"
+    ]
+  }
+}

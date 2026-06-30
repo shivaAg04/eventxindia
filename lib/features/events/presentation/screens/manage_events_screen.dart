@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/value_objects/event_status.dart';
+import '../../../applications/presentation/bloc/application_bloc.dart';
+import '../../../applications/presentation/screens/applicant_list_screen.dart';
 import '../../../auth/presentation/widgets/logout_button.dart';
 import '../../../profile/domain/entities/vendor.dart';
 import '../../domain/entities/event.dart';
@@ -23,6 +25,7 @@ class ManageEventsScreen extends StatelessWidget {
   const ManageEventsScreen({
     required this.vendor,
     required this.createBloc,
+    required this.createApplicationBloc,
     super.key,
   });
 
@@ -34,20 +37,31 @@ class ManageEventsScreen extends StatelessWidget {
   /// DI).
   final EventManagementBloc Function() createBloc;
 
+  /// Factory for the [ApplicationBloc] backing the per-event applicant review
+  /// screen each row opens (R5.3–R5.5).
+  final ApplicationBloc Function() createApplicationBloc;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EventManagementBloc>(
       create: (_) =>
           createBloc()..add(VendorEventsWatchStarted(vendor.uid)),
-      child: _ManageEventsView(vendor: vendor),
+      child: _ManageEventsView(
+        vendor: vendor,
+        createApplicationBloc: createApplicationBloc,
+      ),
     );
   }
 }
 
 class _ManageEventsView extends StatelessWidget {
-  const _ManageEventsView({required this.vendor});
+  const _ManageEventsView({
+    required this.vendor,
+    required this.createApplicationBloc,
+  });
 
   final Vendor vendor;
+  final ApplicationBloc Function() createApplicationBloc;
 
   void _openCreate(BuildContext context) {
     final EventManagementBloc bloc = context.read<EventManagementBloc>();
@@ -101,6 +115,7 @@ class _ManageEventsView extends StatelessWidget {
             itemBuilder: (BuildContext context, int index) => _EventTile(
               event: state.events[index],
               vendorId: vendor.uid,
+              createApplicationBloc: createApplicationBloc,
             ),
           );
         },
@@ -109,13 +124,19 @@ class _ManageEventsView extends StatelessWidget {
   }
 }
 
-/// A single owned-event row showing its title and status, with a menu to
-/// transition the event to another [EventStatus] (R7.5).
+/// A single owned-event row showing its title and status. Tapping it opens the
+/// event's applicant list to review/decide applications (R5.3–R5.5); the
+/// trailing menu transitions the event to another [EventStatus] (R7.5).
 class _EventTile extends StatelessWidget {
-  const _EventTile({required this.event, required this.vendorId});
+  const _EventTile({
+    required this.event,
+    required this.vendorId,
+    required this.createApplicationBloc,
+  });
 
   final Event event;
   final String vendorId;
+  final ApplicationBloc Function() createApplicationBloc;
 
   void _changeStatus(BuildContext context, EventStatus status) {
     context.read<EventManagementBloc>().add(
@@ -125,6 +146,20 @@ class _EventTile extends StatelessWidget {
             status: status,
           ),
         );
+  }
+
+  void _openApplicants(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => BlocProvider<ApplicationBloc>(
+          create: (_) => createApplicationBloc(),
+          child: ApplicantListScreen(
+            eventId: event.eventId,
+            vendorId: vendorId,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -137,6 +172,7 @@ class _EventTile extends StatelessWidget {
         'Status: ${event.status.wireName} • Slots: ${event.slots} • '
         '₹${event.payPerHead.formatted}',
       ),
+      onTap: () => _openApplicants(context),
       trailing: PopupMenuButton<EventStatus>(
         tooltip: 'Change status',
         onSelected: (EventStatus status) => _changeStatus(context, status),

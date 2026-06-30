@@ -23,6 +23,7 @@ import '../features/profile/presentation/bloc/student_profile_cubit.dart';
 import '../features/profile/presentation/screens/student_profile_screen.dart';
 import '../features/profile/presentation/screens/student_registration_screen.dart';
 import '../features/profile/presentation/screens/vendor_registration_screen.dart';
+import '../features/applications/presentation/bloc/application_bloc.dart';
 import '../features/applications/presentation/bloc/student_applications_cubit.dart';
 import '../core/error/failure.dart';
 import '../core/result/result.dart';
@@ -48,6 +49,7 @@ class AppDestinationScreenFactory {
     required this.uidProvider,
     required this.profileRepository,
     required this.createEventDiscoveryBloc,
+    required this.createApplicationBloc,
     required this.createStudentApplicationsCubit,
     required this.createAttendanceBloc,
     required this.createStudentProfileCubit,
@@ -64,6 +66,10 @@ class AppDestinationScreenFactory {
   final ProfileRepository profileRepository;
 
   final EventDiscoveryBloc Function() createEventDiscoveryBloc;
+
+  /// Factory for the [ApplicationBloc] shared by the student apply action and
+  /// the vendor applicant-review screen (R8.6, R5.3–R5.5).
+  final ApplicationBloc Function() createApplicationBloc;
   final StudentApplicationsCubit Function() createStudentApplicationsCubit;
   final AttendanceBloc Function() createAttendanceBloc;
   final StudentProfileCubit Function() createStudentProfileCubit;
@@ -100,6 +106,7 @@ class AppDestinationScreenFactory {
           (String uid) => StudentDashboardScreen(
             studentId: uid,
             createEventDiscoveryBloc: createEventDiscoveryBloc,
+            createApplicationBloc: createApplicationBloc,
             createStudentApplicationsCubit: createStudentApplicationsCubit,
             createAttendanceBloc: createAttendanceBloc,
             createStudentProfileCubit: createStudentProfileCubit,
@@ -139,6 +146,7 @@ class AppDestinationScreenFactory {
             uid: uid,
             profileRepository: profileRepository,
             createBloc: createEventManagementBloc,
+            createApplicationBloc: createApplicationBloc,
           ),
         );
       case Destination.vendorApplicants:
@@ -181,11 +189,13 @@ class _VendorEventsLoader extends StatelessWidget {
     required this.uid,
     required this.profileRepository,
     required this.createBloc,
+    required this.createApplicationBloc,
   });
 
   final String uid;
   final ProfileRepository profileRepository;
   final EventManagementBloc Function() createBloc;
+  final ApplicationBloc Function() createApplicationBloc;
 
   @override
   Widget build(BuildContext context) {
@@ -205,8 +215,11 @@ class _VendorEventsLoader extends StatelessWidget {
           return const _PendingScreen(title: 'Manage events');
         }
         return result.fold(
-          (Vendor vendor) =>
-              ManageEventsScreen(vendor: vendor, createBloc: createBloc),
+          (Vendor vendor) => ManageEventsScreen(
+            vendor: vendor,
+            createBloc: createBloc,
+            createApplicationBloc: createApplicationBloc,
+          ),
           (_) => const _PendingScreen(title: 'Manage events'),
         );
       },

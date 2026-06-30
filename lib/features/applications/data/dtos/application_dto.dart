@@ -18,6 +18,13 @@ class ApplicationDto {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.applicantName,
+    this.applicantPhone,
+    this.applicantCity,
+    this.eventTitle,
+    this.eventLocation,
+    this.eventPayMinorUnits,
+    this.eventDate,
   });
 
   /// The composite document id `"{eventId}_{studentId}"`.
@@ -31,6 +38,20 @@ class ApplicationDto {
 
   /// The wire/storage status string: `"Pending" | "Approved" | "Rejected"`.
   final String status;
+
+  /// Snapshot of the applying student's name/phone/city at apply time, so the
+  /// owning vendor can identify the candidate without reading the student's
+  /// private profile. `null` on records created before this was introduced.
+  final String? applicantName;
+  final String? applicantPhone;
+  final String? applicantCity;
+
+  /// Snapshot of the event's display fields at apply time, so the student's
+  /// applied/approved lists render the event by name without a second read.
+  final String? eventTitle;
+  final String? eventLocation;
+  final int? eventPayMinorUnits;
+  final Timestamp? eventDate;
 
   /// Creation timestamp in Firestore-native form.
   final Timestamp createdAt;
@@ -51,6 +72,13 @@ class ApplicationDto {
       eventId: data['eventId'] as String,
       studentId: data['studentId'] as String,
       status: data['status'] as String,
+      applicantName: data['applicantName'] as String?,
+      applicantPhone: data['applicantPhone'] as String?,
+      applicantCity: data['applicantCity'] as String?,
+      eventTitle: data['eventTitle'] as String?,
+      eventLocation: data['eventLocation'] as String?,
+      eventPayMinorUnits: (data['eventPayMinorUnits'] as num?)?.toInt(),
+      eventDate: data['eventDate'] as Timestamp?,
       createdAt: data['createdAt'] as Timestamp,
       updatedAt: data['updatedAt'] as Timestamp,
     );
@@ -62,6 +90,13 @@ class ApplicationDto {
         'eventId': eventId,
         'studentId': studentId,
         'status': status,
+        if (applicantName != null) 'applicantName': applicantName,
+        if (applicantPhone != null) 'applicantPhone': applicantPhone,
+        if (applicantCity != null) 'applicantCity': applicantCity,
+        if (eventTitle != null) 'eventTitle': eventTitle,
+        if (eventLocation != null) 'eventLocation': eventLocation,
+        if (eventPayMinorUnits != null) 'eventPayMinorUnits': eventPayMinorUnits,
+        if (eventDate != null) 'eventDate': eventDate,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
       };

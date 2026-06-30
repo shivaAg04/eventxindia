@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/value_objects/application_status.dart';
+import '../../../applications/presentation/bloc/application_bloc.dart';
 import '../../../applications/presentation/bloc/student_applications_cubit.dart';
 import '../../../applications/presentation/screens/student_applications_screen.dart';
 import '../../../attendance/presentation/bloc/attendance_bloc.dart';
@@ -28,6 +29,7 @@ class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({
     required this.studentId,
     required this.createEventDiscoveryBloc,
+    required this.createApplicationBloc,
     required this.createStudentApplicationsCubit,
     required this.createAttendanceBloc,
     required this.createStudentProfileCubit,
@@ -39,6 +41,10 @@ class StudentDashboardScreen extends StatefulWidget {
 
   /// Factory for the active-events tab's [EventDiscoveryBloc].
   final EventDiscoveryBloc Function() createEventDiscoveryBloc;
+
+  /// Factory for the [ApplicationBloc] backing the apply action reached from the
+  /// active-events tab (R8.6).
+  final ApplicationBloc Function() createApplicationBloc;
 
   /// Factory for the applied/approved tabs' [StudentApplicationsCubit].
   final StudentApplicationsCubit Function() createStudentApplicationsCubit;
@@ -57,7 +63,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   int _index = 0;
 
   late final List<Widget> _tabs = <Widget>[
-    StudentActiveEventsScreen(createBloc: widget.createEventDiscoveryBloc),
+    StudentActiveEventsScreen(
+      createBloc: widget.createEventDiscoveryBloc,
+      studentId: widget.studentId,
+      createApplicationBloc: widget.createApplicationBloc,
+    ),
     StudentApplicationsScreen(
       studentId: widget.studentId,
       createCubit: widget.createStudentApplicationsCubit,

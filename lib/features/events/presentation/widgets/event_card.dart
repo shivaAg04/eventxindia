@@ -74,6 +74,8 @@ class EventCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 6),
+                      _SeatsLabel(event: event),
                     ],
                   ),
                 ),
@@ -84,6 +86,40 @@ class EventCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A small seats indicator: "N seats left" (or "Full" when no slots remain).
+class _SeatsLabel extends StatelessWidget {
+  const _SeatsLabel({required this.event});
+
+  final Event event;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool full = event.isFull;
+    final Color color = full ? AppColors.danger : AppColors.textSecondary;
+    final int left = event.seatsRemaining;
+    return Row(
+      children: <Widget>[
+        Icon(
+          full ? Icons.event_busy_outlined : Icons.event_seat_outlined,
+          size: 14,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          full
+              ? 'Full'
+              : '$left of ${event.slots} ${left == 1 ? 'seat' : 'seats'} left',
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

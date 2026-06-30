@@ -111,6 +111,23 @@ class FirestoreEventRepositoryImpl implements EventRepository {
     );
   }
 
+  @override
+  Future<Result<Event, Failure>> setApprovedCount(
+    String eventId,
+    int approvedCount,
+  ) {
+    return withRetry<Event>(
+      kDefaultMaxWriteAttempts,
+      () async {
+        await _dataSource.update(eventId, <String, dynamic>{
+          'approvedCount': approvedCount,
+          'updatedAt': _now(),
+        });
+        return _requireEvent(eventId);
+      },
+    );
+  }
+
   /// Reads back the persisted event after a write so the caller receives the
   /// up-to-date entity. Throws when the document is missing so the surrounding
   /// [withRetry] maps it to a [PersistenceFailure].

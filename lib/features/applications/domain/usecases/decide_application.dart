@@ -107,11 +107,34 @@ class DecideApplication {
       );
     }
 
+    // Approving a full event is rejected: an event cannot have more approved
+    // applicants than it has slots (capacity guard).
+    if (decision == ApplicationDecision.approve && event.isFull) {
+      return const Result<Application, Failure>.err(
+        StateTransitionFailure(
+          message: 'This event is full — all slots have been filled.',
+        ),
+      );
+    }
+
     final Application decided = application.copyWith(
       status: decision.targetStatus,
       updatedAt: _now(),
     );
 
-    return _applicationRepository.decide(decided);
+    final Result<Application, Failure> result =
+        await _applicationRepository.decide(decided);
+
+    // On a successful approval, bump the event's approved count so remaining
+    // seats stay current and the capacity guard holds for later approvals.
+    // Best-effort: a failed counter write does not undo the decision.
+    if (decision == ApplicationDecision.approve && result.isOk) {
+      await _eventRepository.setApprovedCount(
+        event.eventId,
+        event.approvedCount + 1,
+      );
+    }
+
+    return result;
   }
 }

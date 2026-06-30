@@ -258,12 +258,6 @@ extension GetItInjectableX on _i174.GetIt {
         messaging: gh<_i892.FirebaseMessaging>(),
       ),
     );
-    gh.lazySingleton<_i803.ApplyToEvent>(
-      () => useCaseModule.applyToEvent(
-        gh<_i199.EventRepository>(),
-        gh<_i873.ApplicationRepository>(),
-      ),
-    );
     gh.lazySingleton<_i894.ProfileRepository>(
       () => _i652.FirestoreProfileRepositoryImpl(gh<_i974.FirebaseFirestore>()),
     );
@@ -372,6 +366,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i792.ListVendors>(),
         gh<_i481.ListEvents>(),
         gh<_i730.GetMetrics>(),
+      ),
+    );
+    gh.lazySingleton<_i803.ApplyToEvent>(
+      () => useCaseModule.applyToEvent(
+        gh<_i199.EventRepository>(),
+        gh<_i873.ApplicationRepository>(),
+        gh<_i894.ProfileRepository>(),
       ),
     );
     gh.lazySingleton<_i176.GetEarnings>(

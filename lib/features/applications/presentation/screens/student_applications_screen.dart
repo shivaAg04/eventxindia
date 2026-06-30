@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/value_objects/application_status.dart';
+import '../../../../core/value_objects/money.dart';
 import '../../../events/presentation/screens/student_active_events_screen.dart'
     show StudentDashboardMessage;
 import '../../domain/entities/application.dart';
@@ -83,7 +84,8 @@ class StudentApplicationsScreen extends StatelessWidget {
   }
 }
 
-/// The list of a student's applications, each showing the event id and status.
+/// The list of a student's applications, each showing the event by name plus
+/// the snapshot detail (location, pay, date) and the application status.
 class _ApplicationList extends StatelessWidget {
   const _ApplicationList({required this.applications});
 
@@ -95,14 +97,76 @@ class _ApplicationList extends StatelessWidget {
       itemCount: applications.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (BuildContext context, int index) {
-        final Application application = applications[index];
-        return ListTile(
-          key: ValueKey<String>('application-${application.applicationId}'),
-          leading: const Icon(Icons.event_available_outlined),
-          title: Text('Event ${application.eventId}'),
-          subtitle: Text('Status: ${application.status.wireName}'),
-        );
+        return _ApplicationTile(application: applications[index]);
       },
+    );
+  }
+}
+
+/// A single application row: the event title, its detail line, and a status
+/// chip. Falls back to the event id for records saved before the event
+/// snapshot existed.
+class _ApplicationTile extends StatelessWidget {
+  const _ApplicationTile({required this.application});
+
+  final Application application;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> detailBits = <String>[
+      if (application.eventLocation != null) application.eventLocation!,
+      if (application.eventPayMinorUnits != null)
+        '₹${Money.fromMinorUnits(application.eventPayMinorUnits!, requirePayPerHeadRange: false).formatted}',
+      if (application.eventDate != null) _formatDate(application.eventDate!),
+    ];
+    final String? detail = detailBits.isEmpty ? null : detailBits.join(' • ');
+
+    return ListTile(
+      key: ValueKey<String>('application-${application.applicationId}'),
+      isThreeLine: detail != null,
+      leading: const Icon(Icons.event_available_outlined),
+      title: Text(application.eventTitle ?? 'Event ${application.eventId}'),
+      subtitle: Text(
+        detail == null
+            ? 'Status: ${application.status.wireName}'
+            : '$detail\nStatus: ${application.status.wireName}',
+      ),
+      trailing: _StatusBadge(status: application.status),
+    );
+  }
+
+  static String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+}
+
+/// A compact coloured chip for an application's status.
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
+
+  final ApplicationStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = switch (status) {
+      ApplicationStatus.approved => Colors.greenAccent,
+      ApplicationStatus.rejected => Theme.of(context).colorScheme.error,
+      ApplicationStatus.pending => Colors.amberAccent,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        status.wireName,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
     );
   }
 }
