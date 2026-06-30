@@ -10,7 +10,7 @@
 /// [Money.fromMajorUnits] / [Money.fromMinorUnits] for that constraint, and
 /// [Money.zero] / accumulating arithmetic for running totals (e.g. earnings),
 /// which may legitimately be `0` or exceed a single amount's upper bound.
-class Money implements Comparable<Money> {
+class Money {
   /// The amount expressed in minor units (1/100 of a major unit).
   ///
   /// Always non-negative. `12345` represents `123.45`.
@@ -117,16 +117,6 @@ class Money implements Comparable<Money> {
   Money operator +(Money other) =>
       Money.fromMinorUnits(minorUnits + other.minorUnits,
           requirePayPerHeadRange: false);
-
-  /// Returns the difference of this amount and [other].
-  ///
-  /// Throws an [ArgumentError] if the result would be negative.
-  Money operator -(Money other) =>
-      Money.fromMinorUnits(minorUnits - other.minorUnits,
-          requirePayPerHeadRange: false);
-
-  @override
-  int compareTo(Money other) => minorUnits.compareTo(other.minorUnits);
 
   /// A canonical two-decimal string, e.g. `"123.45"`.
   String get formatted {

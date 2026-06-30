@@ -81,7 +81,12 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
 
     // A new OTP resets the per-OTP attempt counter (R2.5) while preserving any
     // active lockout window (R1.4).
-    final Result<Unit, Failure> write = await withRetry<void>(
+    // Best-effort: record the freshly issued OTP in the throttle ledger.
+    // Throttle/lockout state is trusted backend-owned (authThrottle is closed
+    // to clients by Firestore rules), so a denied or failed write must not
+    // block OTP delivery — consistent with the safe read in
+    // [_readThrottleSafe] and the best-effort [_persistThrottle].
+    await withRetry<void>(
       _maxWriteAttempts,
       () => _dataSource.writeThrottle(
         existing.copyWith(
@@ -89,11 +94,7 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
           attemptsForCurrentOtp: 0,
         ),
       ),
-    ).then((Result<void, Failure> r) => r.map((_) => unit));
-
-    if (write.isErr) {
-      return Result<OtpSession, Failure>.err(write.failureOrNull!);
-    }
+    );
 
     return Result<OtpSession, Failure>.ok(
       OtpSession(verificationId: verificationId, phone: phone, sentAt: now),
@@ -145,13 +146,14 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
         AuthMapper.authUserFromFirebase(user, userDoc.data());
 
     if (authUser == null) {
-      // Verified but no role assigned yet: navigation is driven by
-      // [watchSession] which emits AuthenticatedNoRole so the app can route to
-      // registration (R3.4).
+      // Verified but no role assigned yet. The code WAS accepted (a session
+      // exists), so this is not a verification failure: surface a distinct
+      // registration-required signal so the flow routes to registration
+      // (the no-role session state) instead of counting an invalid attempt.
+      // Navigation is also driven by [watchSession], which emits
+      // AuthenticatedNoRole for this user (R3.4).
       return const Result<AuthUser, Failure>.err(
-        AuthFailure(
-          message: 'Your profile is incomplete. Please complete registration.',
-        ),
+        RegistrationRequiredFailure(),
       );
     }
 

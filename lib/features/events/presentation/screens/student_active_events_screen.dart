@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/event.dart';
 import '../bloc/event_discovery_bloc.dart';
+import '../widgets/event_card.dart';
 
 /// Student dashboard "Active events" list (R4.1, R4.7).
 ///
@@ -69,16 +70,14 @@ class _ActiveEventList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       itemCount: events.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (BuildContext context, int index) {
         final Event event = events[index];
-        return ListTile(
+        return EventCard(
           key: ValueKey<String>('active-event-${event.eventId}'),
-          leading: const Icon(Icons.event_outlined),
-          title: Text(event.title),
-          subtitle: Text(event.location.label),
-          trailing: Text('₹${event.payPerHead.formatted}'),
+          event: event,
         );
       },
     );

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/event.dart';
 import '../bloc/event_discovery_bloc.dart';
+import '../widgets/event_card.dart';
 import 'event_detail_screen.dart';
 
 /// Student-facing event discovery screen with inline search (R8.1–R8.5).
@@ -72,7 +73,6 @@ class _EventDiscoveryViewState extends State<_EventDiscoveryView> {
               decoration: InputDecoration(
                 hintText: 'Search by title or location',
                 prefixIcon: const Icon(Icons.search),
-                border: const OutlineInputBorder(),
                 suffixIcon: _searchController.text.isEmpty
                     ? null
                     : IconButton(
@@ -134,16 +134,14 @@ class _EventList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       itemCount: events.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final event = events[index];
-        return ListTile(
+        return EventCard(
           key: ValueKey<String>('discovery-event-${event.eventId}'),
-          leading: const Icon(Icons.event_outlined),
-          title: Text(event.title),
-          subtitle: Text(event.location.label),
-          trailing: Text('₹${event.payPerHead.formatted}'),
+          event: event,
           onTap: () => context
               .read<EventDiscoveryBloc>()
               .add(EventSelected(event.eventId)),

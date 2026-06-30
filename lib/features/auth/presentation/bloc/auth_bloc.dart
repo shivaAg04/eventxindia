@@ -8,6 +8,7 @@ import '../../domain/entities/otp_session.dart';
 import '../../domain/entities/session_state.dart' as domain;
 import '../../domain/entities/user_role.dart';
 import '../../domain/usecases/request_otp.dart';
+import '../../domain/usecases/sign_out.dart';
 import '../../domain/usecases/verify_otp.dart';
 import '../../domain/usecases/watch_session.dart';
 
@@ -30,13 +31,16 @@ part 'auth_state.dart';
 ///   `[Verifying, PhoneLocked]` / `[Verifying, AuthFailure]` on rejection.
 /// * [SessionWatchStarted] → subscribes to the session stream and emits
 ///   [Authenticated] / [AuthInitial] as the signed-in state changes (R3.4).
-/// * [SignedOut] → resets the in-flight challenge and returns to [AuthInitial].
+/// * [SignedOut] → clears the backend session and the in-flight challenge;
+///   [watchSession] then emits Unauthenticated so the router shows the auth
+///   screen (R3.4).
 @injectable
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc(
     this._requestOtp,
     this._verifyOtp,
     this._watchSession,
+    this._signOut,
   ) : super(const AuthInitial()) {
     on<OtpRequested>(_onOtpRequested);
     on<OtpSubmitted>(_onOtpSubmitted);
@@ -47,6 +51,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final RequestOtp _requestOtp;
   final VerifyOtp _verifyOtp;
   final WatchSession _watchSession;
+  final SignOut _signOut;
 
   /// The pending OTP challenge produced by the most recent [OtpRequested],
   /// needed to verify a subsequently submitted code.
@@ -103,7 +108,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     result.fold(
       (AuthUser user) => emit(Authenticated(user.role)),
-      (core.Failure failure) => _emitFailure(failure, emit),
+      (core.Failure failure) {
+        // A registration-required result is a successful sign-in without a
+        // role yet — route to registration rather than reporting a failure
+        // (R3.4). The session watcher emits the matching no-role state too.
+        if (failure is core.RegistrationRequiredFailure) {
+          emit(const AuthenticatedNoRole());
+        } else {
+          _emitFailure(failure, emit);
+        }
+      },
     );
   }
 
@@ -115,15 +129,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       _watchSession(),
       onData: (domain.SessionState sessionState) => switch (sessionState) {
         domain.Authenticated(:final UserRole role) => Authenticated(role),
-        domain.AuthenticatedNoRole() => const AuthInitial(),
+        domain.AuthenticatedNoRole() => const AuthenticatedNoRole(),
         domain.Unauthenticated() => const AuthInitial(),
       },
     );
   }
 
-  void _onSignedOut(SignedOut event, Emitter<AuthState> emit) {
+  Future<void> _onSignedOut(SignedOut event, Emitter<AuthState> emit) async {
     _pendingSession = null;
     _pendingRole = null;
+    // Clear the backend session. [watchSession] then emits Unauthenticated, so
+    // the role-based router returns to the authentication screen (R3.4). The
+    // immediate AuthInitial keeps the UI responsive while that propagates.
+    await _signOut();
     emit(const AuthInitial());
   }
 

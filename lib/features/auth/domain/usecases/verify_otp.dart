@@ -88,15 +88,21 @@ class VerifyOtp {
     final Result<AuthUser, Failure> result =
         await _repository.verifyOtp(session, code);
 
-    final bool accepted = result.isOk;
+    // A registration-required result means the code WAS accepted (a session
+    // now exists) but the user has no role yet — it is not an invalid attempt,
+    // so it must reset the counter like a success and propagate unchanged for
+    // the presentation layer to route to registration (R3.4).
+    final bool verified =
+        result.isOk || result.failureOrNull is RegistrationRequiredFailure;
+
     _attempts[key] = reduceAttempt(
       current,
-      accepted: accepted,
+      accepted: verified,
       role: role,
       now: now,
     );
 
-    if (accepted) {
+    if (verified) {
       return result;
     }
 

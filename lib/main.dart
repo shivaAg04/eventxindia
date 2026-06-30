@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bootstrap/device_token_registrar.dart';
 import 'core/data/firebase_initializer.dart';
 import 'core/di/injection.dart';
+import 'core/theme/app_theme.dart';
 import 'features/admin/domain/repositories/admin_repository.dart';
 import 'features/admin/presentation/bloc/admin_bloc.dart';
 import 'features/attendance/presentation/bloc/attendance_bloc.dart';
@@ -17,6 +18,7 @@ import 'features/earnings/presentation/bloc/earnings_bloc.dart';
 import 'features/events/presentation/bloc/event_discovery_bloc.dart';
 import 'features/events/presentation/bloc/event_management_bloc.dart';
 import 'features/profile/domain/repositories/profile_repository.dart';
+import 'features/profile/presentation/bloc/registration_bloc.dart';
 import 'features/profile/presentation/bloc/student_profile_cubit.dart';
 import 'features/applications/presentation/bloc/student_applications_cubit.dart';
 import 'routing/app_destination_screen_factory.dart';
@@ -59,9 +61,17 @@ class EventXIndiaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'EventXIndia',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
+      debugShowCheckedModeBanner: false,
+      // The product is dark-only by design; wire the one theme as both slots
+      // so it holds regardless of the platform brightness setting.
+      theme: AppTheme.dark,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
+      // Paint the signature "aurora" glow behind every screen so the whole app
+      // shares the same depth without each screen opting in.
+      builder: (BuildContext context, Widget? child) => DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppGradients.canvas),
+        child: child,
       ),
       home: const _AppRoot(),
     );
@@ -118,6 +128,7 @@ class _RoutedAppState extends State<_RoutedApp> {
       createEarningsBloc: () => getIt<EarningsBloc>(),
       createEventManagementBloc: () => getIt<EventManagementBloc>(),
       createAdminBloc: () => getIt<AdminBloc>(),
+      createRegistrationBloc: () => getIt<RegistrationBloc>(),
     );
     _tokenRegistrar = DeviceTokenRegistrar(
       adminRepository: getIt<AdminRepository>(),

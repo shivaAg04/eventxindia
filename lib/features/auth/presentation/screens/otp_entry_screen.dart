@@ -47,13 +47,16 @@ class _OtpEntryScreenState extends State<OtpEntryScreen> {
       body: BlocConsumer<AuthBloc, AuthState>(
         listenWhen: (_, AuthState state) =>
             state is Authenticated ||
+            state is AuthenticatedNoRole ||
             state is PhoneLocked ||
             state is AuthFailure,
         listener: (BuildContext context, AuthState state) {
           final NavigatorState navigator = Navigator.of(context);
           final ScaffoldMessengerState messenger =
               ScaffoldMessenger.of(context);
-          if (state is Authenticated) {
+          if (state is Authenticated || state is AuthenticatedNoRole) {
+            // Verified: pop so the router routes by role, or to the no-role /
+            // registration destination when the profile is incomplete (R3.4).
             navigator.pop();
           } else if (state is PhoneLocked) {
             messenger

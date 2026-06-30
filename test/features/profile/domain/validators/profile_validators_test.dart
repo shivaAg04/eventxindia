@@ -116,7 +116,7 @@ void main() {
       );
     });
 
-    test('flags a missing photo', () {
+    test('allows a missing photo (the photo is optional)', () {
       final input = StudentProfileInput(
         fullName: 'Asha Rao',
         phone: PhoneNumber.national('9876543210'),
@@ -126,10 +126,7 @@ void main() {
         heightCm: 165,
         photo: null,
       );
-      expect(
-        fieldsOf(validateStudentProfile(input, now: now)),
-        contains(ProfileFields.profilePhoto),
-      );
+      expect(validateStudentProfile(input, now: now), isEmpty);
     });
 
     test('reports every offending field at once', () {
@@ -150,7 +147,6 @@ void main() {
           ProfileFields.dateOfBirth,
           ProfileFields.city,
           ProfileFields.heightCm,
-          ProfileFields.profilePhoto,
         },
       );
     });

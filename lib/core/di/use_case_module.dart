@@ -22,6 +22,7 @@ import '../../features/attendance/domain/usecases/check_out.dart';
 import '../../features/attendance/domain/usecases/generate_attendance_code.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/request_otp.dart';
+import '../../features/auth/domain/usecases/sign_out.dart';
 import '../../features/auth/domain/usecases/verify_otp.dart';
 import '../../features/auth/domain/usecases/watch_session.dart';
 import '../../features/events/domain/repositories/event_repository.dart';
@@ -33,10 +34,6 @@ import '../../features/events/domain/usecases/watch_active_events.dart';
 import '../../features/events/domain/usecases/watch_vendor_events.dart';
 import '../../features/navigation/domain/usecases/authorize.dart';
 import '../../features/navigation/domain/usecases/resolve_start_destination.dart';
-import '../../features/profile/domain/repositories/profile_repository.dart';
-import '../../features/profile/domain/repositories/storage_repository.dart';
-import '../../features/profile/domain/usecases/register_student.dart';
-import '../../features/profile/domain/usecases/register_vendor.dart';
 import '../../features/reports/domain/repositories/report_repository.dart';
 import '../../features/reports/domain/usecases/list_reports.dart';
 import '../../features/reports/domain/usecases/submit_report.dart';
@@ -71,21 +68,12 @@ abstract class UseCaseModule {
   WatchSession watchSession(AuthRepository repository) =>
       WatchSession(repository);
 
-  // --- Profile / registration (R1, R2, R14) --------------------------------
-
   @lazySingleton
-  RegisterStudent registerStudent(
-    ProfileRepository profileRepository,
-    StorageRepository storageRepository,
-  ) =>
-      RegisterStudent(
-        profileRepository: profileRepository,
-        storageRepository: storageRepository,
-      );
+  SignOut signOut(AuthRepository repository) => SignOut(repository);
 
-  @lazySingleton
-  RegisterVendor registerVendor(ProfileRepository profileRepository) =>
-      RegisterVendor(profileRepository: profileRepository);
+  // Profile registration no longer has use cases: RegistrationBloc validates
+  // and persists through ProfileRepository / StorageRepository directly
+  // (R1, R2, R14), mirroring how StudentProfileCubit reads.
 
   // --- Events: management & discovery (R5, R7, R8) -------------------------
 

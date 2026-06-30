@@ -8,8 +8,6 @@ import 'package:eventxindia/features/profile/domain/entities/student.dart';
 import 'package:eventxindia/features/profile/domain/entities/vendor.dart';
 import 'package:eventxindia/features/profile/domain/repositories/profile_repository.dart';
 import 'package:eventxindia/features/profile/domain/repositories/storage_repository.dart';
-import 'package:eventxindia/features/profile/domain/usecases/register_student.dart';
-import 'package:eventxindia/features/profile/domain/usecases/register_vendor.dart';
 import 'package:eventxindia/features/profile/domain/validators/profile_validators.dart';
 import 'package:eventxindia/features/profile/presentation/bloc/registration_bloc.dart';
 import 'package:eventxindia/features/profile/presentation/bloc/registration_event.dart';
@@ -73,11 +71,8 @@ void main() {
 
   RegistrationBloc buildBloc() {
     return RegistrationBloc(
-      registerStudent: RegisterStudent(
-        profileRepository: profile,
-        storageRepository: storage,
-      ),
-      registerVendor: RegisterVendor(profileRepository: profile),
+      profileRepository: profile,
+      storageRepository: storage,
       clock: () => fixedNow,
     );
   }

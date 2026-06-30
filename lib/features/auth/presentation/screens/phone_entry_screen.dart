@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/user_role.dart';
 import '../bloc/auth_bloc.dart';
 import 'otp_entry_screen.dart';
@@ -54,7 +55,6 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign in')),
       body: BlocConsumer<AuthBloc, AuthState>(
         listenWhen: (_, AuthState state) =>
             state is OtpSent ||
@@ -84,66 +84,148 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
         },
         builder: (BuildContext context, AuthState state) {
           final bool busy = _isBusy(state);
-          return AbsorbPointer(
-            absorbing: busy,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: <Widget>[
-                const Text('I am a'),
-                const SizedBox(height: 8),
-                SegmentedButton<UserRole>(
-                  segments: const <ButtonSegment<UserRole>>[
-                    ButtonSegment<UserRole>(
-                      value: UserRole.student,
-                      label: Text('Student'),
+          return SafeArea(
+            child: AbsorbPointer(
+              absorbing: busy,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+                children: <Widget>[
+                  const _BrandHeader(),
+                  const SizedBox(height: 40),
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: AppDecorations.glassCard(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text(
+                          'I am a',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(height: 12),
+                        SegmentedButton<UserRole>(
+                          segments: const <ButtonSegment<UserRole>>[
+                            ButtonSegment<UserRole>(
+                              value: UserRole.student,
+                              icon: Icon(Icons.school_outlined),
+                              label: Text('Student'),
+                            ),
+                            ButtonSegment<UserRole>(
+                              value: UserRole.vendor,
+                              icon: Icon(Icons.storefront_outlined),
+                              label: Text('Vendor'),
+                            ),
+                          ],
+                          selected: <UserRole>{_role},
+                          onSelectionChanged: busy
+                              ? null
+                              : (Set<UserRole> selection) {
+                                  setState(() => _role = selection.first);
+                                },
+                        ),
+                        const SizedBox(height: 24),
+                        TextField(
+                          key: const ValueKey<String>('phone-entry-phone'),
+                          controller: _phone,
+                          enabled: !busy,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: _role == UserRole.vendor
+                                ? 'Phone number (10 digits)'
+                                : 'Phone number (with country code)',
+                            hintText: _role == UserRole.vendor
+                                ? '9876543210'
+                                : '+919876543210',
+                            prefixIcon: const Icon(Icons.phone_outlined),
+                            errorText: _phoneError(state),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          key: const ValueKey<String>('phone-entry-submit'),
+                          onPressed: busy ? null : () => _requestOtp(context),
+                          child: state is OtpSending
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Send OTP'),
+                        ),
+                      ],
                     ),
-                    ButtonSegment<UserRole>(
-                      value: UserRole.vendor,
-                      label: Text('Vendor'),
-                    ),
-                  ],
-                  selected: <UserRole>{_role},
-                  onSelectionChanged: busy
-                      ? null
-                      : (Set<UserRole> selection) {
-                          setState(() => _role = selection.first);
-                        },
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  key: const ValueKey<String>('phone-entry-phone'),
-                  controller: _phone,
-                  enabled: !busy,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: _role == UserRole.vendor
-                        ? 'Phone number (10 digits)'
-                        : 'Phone number (with country code)',
-                    hintText: _role == UserRole.vendor
-                        ? '9876543210'
-                        : '+919876543210',
-                    border: const OutlineInputBorder(),
-                    errorText: _phoneError(state),
                   ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  key: const ValueKey<String>('phone-entry-submit'),
-                  onPressed:
-                      busy ? null : () => _requestOtp(context),
-                  child: state is OtpSending
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Send OTP'),
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  Text(
+                    'We’ll text you a one-time code to verify your number.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+/// The branded login header: a glowing logo mark above the app name rendered
+/// in the signature brand gradient, with a short tagline.
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Container(
+          height: 76,
+          width: 76,
+          decoration: BoxDecoration(
+            gradient: AppGradients.brand,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.45),
+                blurRadius: 32,
+                spreadRadius: -4,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.bolt_rounded,
+            size: 42,
+            color: Color(0xFF0A0E1F),
+          ),
+        ),
+        const SizedBox(height: 24),
+        ShaderMask(
+          shaderCallback: (Rect bounds) =>
+              AppGradients.brand.createShader(bounds),
+          child: Text(
+            'EventX',
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Staff events. Smarter.',
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
     );
   }
 }

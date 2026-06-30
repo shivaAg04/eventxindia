@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/value_objects/approval_status.dart';
+import '../../../auth/presentation/widgets/logout_button.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../profile/domain/entities/student.dart';
 import '../../../profile/domain/entities/vendor.dart';
@@ -48,6 +49,7 @@ class _AdminListsView extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin'),
+          actions: const <Widget>[LogoutButton()],
           bottom: const TabBar(
             tabs: <Widget>[
               Tab(text: 'Students'),

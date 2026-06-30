@@ -14,11 +14,15 @@ import '../features/events/presentation/bloc/event_management_bloc.dart';
 import '../features/events/presentation/screens/event_discovery_screen.dart';
 import '../features/events/presentation/screens/manage_events_screen.dart';
 import '../features/events/presentation/screens/student_dashboard_screen.dart';
+import '../features/auth/domain/entities/user_role.dart';
 import '../features/navigation/domain/entities/destination.dart';
 import '../features/profile/domain/entities/vendor.dart';
 import '../features/profile/domain/repositories/profile_repository.dart';
+import '../features/profile/presentation/bloc/registration_bloc.dart';
 import '../features/profile/presentation/bloc/student_profile_cubit.dart';
 import '../features/profile/presentation/screens/student_profile_screen.dart';
+import '../features/profile/presentation/screens/student_registration_screen.dart';
+import '../features/profile/presentation/screens/vendor_registration_screen.dart';
 import '../features/applications/presentation/bloc/student_applications_cubit.dart';
 import '../core/error/failure.dart';
 import '../core/result/result.dart';
@@ -50,6 +54,7 @@ class AppDestinationScreenFactory {
     required this.createEarningsBloc,
     required this.createEventManagementBloc,
     required this.createAdminBloc,
+    required this.createRegistrationBloc,
   });
 
   /// Resolves the signed-in user's id, or `null` when unavailable.
@@ -66,6 +71,10 @@ class AppDestinationScreenFactory {
   final EventManagementBloc Function() createEventManagementBloc;
   final AdminBloc Function() createAdminBloc;
 
+  /// Factory for the [RegistrationBloc] backing the student/vendor registration
+  /// forms shown to a signed-in user who has no role yet (R1.5–R1.9, R3.4).
+  final RegistrationBloc Function() createRegistrationBloc;
+
   /// The [DestinationScreenFactory] the router calls to render [destination].
   Widget build(Destination destination) {
     switch (destination) {
@@ -75,7 +84,15 @@ class AppDestinationScreenFactory {
         return const PhoneEntryScreen();
 
       case Destination.noRole:
-        return const _NoRoleScreen();
+        // A signed-in user with no role yet completes self-service
+        // registration here, which creates their profile + role record and
+        // resolves the live session into a role dashboard (R1.5–R1.9, R3.4).
+        return _withUid(
+          (String uid) => _RegistrationGate(
+            uid: uid,
+            createRegistrationBloc: createRegistrationBloc,
+          ),
+        );
 
       // --- Student ---
       case Destination.studentDashboard:
@@ -193,6 +210,75 @@ class _VendorEventsLoader extends StatelessWidget {
           (_) => const _PendingScreen(title: 'Manage events'),
         );
       },
+    );
+  }
+}
+
+/// Self-service registration entry for a signed-in user with no role yet
+/// (R1.5–R1.9, R3.4).
+///
+/// The user picks Student or Vendor, then completes the matching registration
+/// form (wrapped in a fresh [RegistrationBloc]). On success the form writes the
+/// profile and the `users/{uid}` role record, so the live session resolves into
+/// the role's dashboard and the router replaces this gate. Admin accounts are
+/// provisioned by the trusted backend, so only the two self-service roles are
+/// offered here.
+class _RegistrationGate extends StatefulWidget {
+  const _RegistrationGate({
+    required this.uid,
+    required this.createRegistrationBloc,
+  });
+
+  final String uid;
+  final RegistrationBloc Function() createRegistrationBloc;
+
+  @override
+  State<_RegistrationGate> createState() => _RegistrationGateState();
+}
+
+class _RegistrationGateState extends State<_RegistrationGate> {
+  UserRole? _role;
+
+  @override
+  Widget build(BuildContext context) {
+    final UserRole? role = _role;
+    if (role == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Complete registration')),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const Text(
+                'Welcome! Tell us who you are to finish setting up your '
+                'account.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                key: const ValueKey<String>('register-as-student'),
+                onPressed: () => setState(() => _role = UserRole.student),
+                child: const Text('Register as Student'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                key: const ValueKey<String>('register-as-vendor'),
+                onPressed: () => setState(() => _role = UserRole.vendor),
+                child: const Text('Register as Vendor'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return BlocProvider<RegistrationBloc>(
+      create: (_) => widget.createRegistrationBloc(),
+      child: role == UserRole.student
+          ? StudentRegistrationScreen(uid: widget.uid)
+          : VendorRegistrationScreen(uid: widget.uid),
     );
   }
 }

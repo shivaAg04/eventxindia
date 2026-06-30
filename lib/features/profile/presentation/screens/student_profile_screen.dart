@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../auth/presentation/widgets/logout_button.dart';
 import '../../domain/entities/student.dart';
 import '../bloc/student_profile_cubit.dart';
 
@@ -31,7 +32,10 @@ class StudentProfileScreen extends StatelessWidget {
     return BlocProvider<StudentProfileCubit>(
       create: (_) => createCubit()..load(uid),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(
+          title: const Text('Profile'),
+          actions: const <Widget>[LogoutButton()],
+        ),
         body: BlocBuilder<StudentProfileCubit, StudentProfileState>(
           builder: (BuildContext context, StudentProfileState state) {
             return switch (state) {

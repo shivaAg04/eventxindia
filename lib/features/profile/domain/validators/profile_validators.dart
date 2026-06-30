@@ -119,8 +119,9 @@ const Set<String> acceptedPhotoContentTypes = <String>{
 /// instant used to verify that [StudentProfileInput.dateOfBirth] is strictly in
 /// the past.
 ///
-/// This checks only the profile fields and that a photo is *present*; the
-/// photo's size/format are validated separately by [validatePhoto] (R1.8).
+/// This checks only the profile fields. The photo is optional (no Storage is
+/// provisioned); when one is supplied its size/format are validated separately
+/// by [validatePhoto] (R1.8).
 List<FieldError> validateStudentProfile(
   StudentProfileInput input, {
   required DateTime now,
@@ -184,12 +185,9 @@ List<FieldError> validateStudentProfile(
     ));
   }
 
-  if (input.photo == null) {
-    errors.add(const FieldError(
-      field: ProfileFields.profilePhoto,
-      message: 'A profile photo is required.',
-    ));
-  }
+  // The profile photo is optional in this deployment (no Firebase Storage is
+  // provisioned, so uploads are skipped). When a photo *is* provided, its
+  // size/format are still validated by [validatePhoto] (R1.8).
 
   return errors;
 }

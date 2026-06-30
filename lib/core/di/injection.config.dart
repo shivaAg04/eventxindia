@@ -73,6 +73,7 @@ import '../../features/auth/data/repositories/firebase_auth_repository_impl.dart
     as _i996;
 import '../../features/auth/domain/repositories/auth_repository.dart' as _i787;
 import '../../features/auth/domain/usecases/request_otp.dart' as _i474;
+import '../../features/auth/domain/usecases/sign_out.dart' as _i568;
 import '../../features/auth/domain/usecases/verify_otp.dart' as _i975;
 import '../../features/auth/domain/usecases/watch_session.dart' as _i725;
 import '../../features/auth/presentation/bloc/auth_bloc.dart' as _i797;
@@ -116,10 +117,6 @@ import '../../features/notifications/data/repositories/firebase_notification_ser
     as _i961;
 import '../../features/notifications/domain/services/notification_service.dart'
     as _i569;
-import '../../features/profile/data/datasources/firebase_storage_data_source.dart'
-    as _i0;
-import '../../features/profile/data/datasources/firestore_profile_data_source.dart'
-    as _i879;
 import '../../features/profile/data/repositories/firebase_storage_repository_impl.dart'
     as _i702;
 import '../../features/profile/data/repositories/firestore_profile_repository_impl.dart'
@@ -128,8 +125,6 @@ import '../../features/profile/domain/repositories/profile_repository.dart'
     as _i894;
 import '../../features/profile/domain/repositories/storage_repository.dart'
     as _i50;
-import '../../features/profile/domain/usecases/register_student.dart' as _i643;
-import '../../features/profile/domain/usecases/register_vendor.dart' as _i260;
 import '../../features/profile/presentation/bloc/registration_bloc.dart'
     as _i671;
 import '../../features/profile/presentation/bloc/student_profile_cubit.dart'
@@ -190,19 +185,16 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i962.FirestoreEventDataSource>(
       () => _i962.FirestoreEventDataSource(gh<_i974.FirebaseFirestore>()),
     );
-    gh.factory<_i879.FirestoreProfileDataSource>(
-      () => _i879.FirestoreProfileDataSource(gh<_i974.FirebaseFirestore>()),
-    );
     gh.factory<_i621.FirestoreReportDataSource>(
       () => _i621.FirestoreReportDataSource(gh<_i974.FirebaseFirestore>()),
+    );
+    gh.lazySingleton<_i50.StorageRepository>(
+      () => _i702.FirebaseStorageRepositoryImpl(gh<_i457.FirebaseStorage>()),
     );
     gh.lazySingleton<_i583.AdminRepository>(
       () => _i420.FirestoreAdminRepositoryImpl(
         gh<_i489.FirestoreAdminDataSource>(),
       ),
-    );
-    gh.factory<_i0.FirebaseStorageDataSource>(
-      () => _i0.FirebaseStorageDataSource(gh<_i457.FirebaseStorage>()),
     );
     gh.lazySingleton<_i477.AttendanceRepository>(
       () => _i724.FirestoreAttendanceRepositoryImpl(
@@ -272,27 +264,17 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i873.ApplicationRepository>(),
       ),
     );
+    gh.lazySingleton<_i894.ProfileRepository>(
+      () => _i652.FirestoreProfileRepositoryImpl(gh<_i974.FirebaseFirestore>()),
+    );
     gh.lazySingleton<_i1028.EarningsRepository>(
       () => _i619.FirestoreEarningsRepositoryImpl(
         gh<_i799.FirestoreEarningsDataSource>(),
       ),
     );
-    gh.lazySingleton<_i894.ProfileRepository>(
-      () => _i652.FirestoreProfileRepositoryImpl(
-        gh<_i879.FirestoreProfileDataSource>(),
-      ),
-    );
-    gh.lazySingleton<_i260.RegisterVendor>(
-      () => useCaseModule.registerVendor(gh<_i894.ProfileRepository>()),
-    );
     gh.lazySingleton<_i569.NotificationService>(
       () => _i961.FirebaseNotificationServiceImpl(
         gh<_i317.FirebaseNotificationDataSource>(),
-      ),
-    );
-    gh.lazySingleton<_i50.StorageRepository>(
-      () => _i702.FirebaseStorageRepositoryImpl(
-        gh<_i0.FirebaseStorageDataSource>(),
       ),
     );
     gh.factory<_i30.StudentProfileCubit>(
@@ -349,8 +331,25 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i725.WatchSession>(
       () => useCaseModule.watchSession(gh<_i787.AuthRepository>()),
     );
+    gh.lazySingleton<_i568.SignOut>(
+      () => useCaseModule.signOut(gh<_i787.AuthRepository>()),
+    );
     gh.lazySingleton<_i730.GetMetrics>(
       () => useCaseModule.getMetrics(gh<_i219.MetricsService>()),
+    );
+    gh.factory<_i671.RegistrationBloc>(
+      () => _i671.RegistrationBloc.inject(
+        profileRepository: gh<_i894.ProfileRepository>(),
+        storageRepository: gh<_i50.StorageRepository>(),
+      ),
+    );
+    gh.factory<_i797.AuthBloc>(
+      () => _i797.AuthBloc(
+        gh<_i474.RequestOtp>(),
+        gh<_i975.VerifyOtp>(),
+        gh<_i725.WatchSession>(),
+        gh<_i568.SignOut>(),
+      ),
     );
     gh.lazySingleton<_i794.GenerateAttendanceCode>(
       () => useCaseModule.generateAttendanceCode(gh<_i199.EventRepository>()),
@@ -375,12 +374,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i730.GetMetrics>(),
       ),
     );
-    gh.lazySingleton<_i643.RegisterStudent>(
-      () => useCaseModule.registerStudent(
-        gh<_i894.ProfileRepository>(),
-        gh<_i50.StorageRepository>(),
-      ),
-    );
     gh.lazySingleton<_i176.GetEarnings>(
       () => useCaseModule.getEarnings(gh<_i1028.EarningsRepository>()),
     );
@@ -398,13 +391,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i142.EarningsBloc>(
       () => _i142.EarningsBloc(gh<_i176.GetEarnings>()),
     );
-    gh.factory<_i797.AuthBloc>(
-      () => _i797.AuthBloc(
-        gh<_i474.RequestOtp>(),
-        gh<_i975.VerifyOtp>(),
-        gh<_i725.WatchSession>(),
-      ),
-    );
     gh.factory<_i653.EventManagementBloc>(
       () => _i653.EventManagementBloc(
         gh<_i539.CreateEvent>(),
@@ -415,12 +401,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i726.StudentApplicationsCubit>(
       () =>
           _i726.StudentApplicationsCubit(gh<_i566.WatchStudentApplications>()),
-    );
-    gh.factory<_i671.RegistrationBloc>(
-      () => _i671.RegistrationBloc.inject(
-        registerStudent: gh<_i643.RegisterStudent>(),
-        registerVendor: gh<_i260.RegisterVendor>(),
-      ),
     );
     gh.factory<_i785.EventDiscoveryBloc>(
       () => _i785.EventDiscoveryBloc(

@@ -49,6 +49,14 @@ final class Authenticated extends AuthState {
   List<Object?> get props => <Object?>[role];
 }
 
+/// Authentication succeeded but the signed-in user has no role/profile yet, so
+/// no role-specific destination is available; the app routes to registration /
+/// the no-role screen (R3.4). The router maps this to the domain
+/// `AuthenticatedNoRole` session state.
+final class AuthenticatedNoRole extends AuthState {
+  const AuthenticatedNoRole();
+}
+
 /// Authentication failed for a non-lockout reason — e.g. an invalid or expired
 /// OTP, or an invalidated OTP that requires a fresh request
 /// (R1.2, R1.3, R2.3, R2.5).

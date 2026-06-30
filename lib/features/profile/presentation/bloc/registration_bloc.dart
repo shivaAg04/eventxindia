@@ -2,52 +2,46 @@ import 'package:bloc/bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/phone_number.dart';
 import '../../domain/entities/student.dart';
 import '../../domain/entities/vendor.dart';
-import '../../domain/usecases/register_student.dart';
-import '../../domain/usecases/register_vendor.dart';
+import '../../domain/repositories/profile_repository.dart';
+import '../../domain/repositories/storage_repository.dart';
 import '../../domain/validators/profile_validators.dart';
 import 'registration_event.dart';
 import 'registration_state.dart';
 
-/// The field name used for phone-number errors the [RegistrationBloc] surfaces.
-///
-/// The domain validators never emit a phone error (the [PhoneNumber] value
-/// object guarantees structural validity), but the BLoC must report when the
-/// raw text it received cannot be parsed into one (R1.6, R2.6).
+/// The field name used for phone-number errors the BLoC surfaces. The domain
+/// validators never emit one (the [PhoneNumber] value object guarantees
+/// structural validity), so the BLoC reports unparseable raw text itself.
 const String _phoneField = 'phone';
 
 /// A structurally valid placeholder used only to run the field validators when
-/// the entered phone text could not be parsed. The validators ignore the phone,
-/// so this lets the BLoC still report every other missing/invalid field.
+/// the entered phone text could not be parsed; the validators ignore the phone.
 final PhoneNumber _placeholderPhone = PhoneNumber.national('0000000000');
 
-/// Translates registration UI intents into [RegisterStudent]/[RegisterVendor]
-/// use-case calls and emits states the form renders (design BLoC table).
-///
-/// The BLoC depends only on the injected use cases (never on a repository or
-/// any backend package). It always re-emits the current form draft with every
-/// state so the entered values are preserved across validation failures and
-/// in-flight submissions, and it surfaces per-field errors via
-/// [RegistrationEditing.fieldErrors] (R1.7, R2.8).
+/// Drives the registration form: validates input, uploads the photo, and
+/// persists the profile directly through the repositories (R1.6–R1.9, R2.6–R2.9,
+/// R14.1–R14.3). Every state re-emits the current draft so entered values are
+/// retained across validation failures and in-flight submissions (R1.7, R2.8).
 @injectable
 class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
   @factoryMethod
   RegistrationBloc.inject({
-    required RegisterStudent registerStudent,
-    required RegisterVendor registerVendor,
+    required ProfileRepository profileRepository,
+    required StorageRepository storageRepository,
   }) : this(
-          registerStudent: registerStudent,
-          registerVendor: registerVendor,
+          profileRepository: profileRepository,
+          storageRepository: storageRepository,
         );
 
   RegistrationBloc({
-    required RegisterStudent registerStudent,
-    required RegisterVendor registerVendor,
+    required ProfileRepository profileRepository,
+    required StorageRepository storageRepository,
     DateTime Function()? clock,
-  })  : _registerStudent = registerStudent,
-        _registerVendor = registerVendor,
+  })  : _profileRepository = profileRepository,
+        _storageRepository = storageRepository,
         _now = clock ?? DateTime.now,
         super(const RegistrationEditing()) {
     on<StudentFieldsChanged>(_onStudentFieldsChanged);
@@ -57,12 +51,10 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
     on<VendorSubmitted>(_onVendorSubmitted);
   }
 
-  final RegisterStudent _registerStudent;
-  final RegisterVendor _registerVendor;
+  final ProfileRepository _profileRepository;
+  final StorageRepository _storageRepository;
   final DateTime Function() _now;
 
-  /// Replaces the held Student draft, retaining the existing Vendor draft, and
-  /// clears any previously shown field errors so the user can keep editing.
   void _onStudentFieldsChanged(
     StudentFieldsChanged event,
     Emitter<RegistrationState> emit,
@@ -73,12 +65,7 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
     ));
   }
 
-  /// Updates only the photo on the held Student draft (R1.8, R1.9), retaining
-  /// every other entered value.
-  void _onPhotoPicked(
-    PhotoPicked event,
-    Emitter<RegistrationState> emit,
-  ) {
+  void _onPhotoPicked(PhotoPicked event, Emitter<RegistrationState> emit) {
     emit(RegistrationEditing(
       studentForm: state.studentForm.copyWith(
         photo: event.photo,
@@ -88,8 +75,6 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
     ));
   }
 
-  /// Replaces the held Vendor draft, retaining the existing Student draft, and
-  /// clears any previously shown field errors.
   void _onVendorFieldsChanged(
     VendorFieldsChanged event,
     Emitter<RegistrationState> emit,
@@ -100,29 +85,14 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
     ));
   }
 
-  /// Validates and registers the Student profile.
-  ///
-  /// The raw phone/height text is parsed first; any parse failure is reported
-  /// as a field error alongside the domain validator's errors so the user sees
-  /// every problem at once. On any failure the entered values are retained
-  /// (R1.7).
+  /// Validates, uploads the photo, and persists the Student profile, retaining
+  /// entered values on any failure (R1.7).
   Future<void> _onStudentSubmitted(
     StudentSubmitted event,
     Emitter<RegistrationState> emit,
   ) async {
     final StudentFormData form = state.studentForm;
-
-    final List<FieldError> parseErrors = <FieldError>[];
-
     final PhoneNumber? phone = _tryParsePhone(form.phone);
-    if (phone == null) {
-      parseErrors.add(const FieldError(
-        field: _phoneField,
-        message: 'Enter a valid phone number.',
-      ));
-    }
-
-    final int? heightCm = _parseHeight(form.height);
 
     final StudentProfileInput input = StudentProfileInput(
       fullName: form.fullName,
@@ -130,54 +100,43 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
       gender: form.gender,
       dateOfBirth: form.dateOfBirth,
       city: form.city,
-      heightCm: heightCm,
+      heightCm: _parseHeight(form.height),
       photo: form.photo,
     );
 
-    // When the phone could not be parsed we cannot run the use case, so build
-    // the full error set locally (validator + photo + phone) and stop here.
+    // Without a parseable phone we cannot persist, so report every field
+    // problem (validator + photo + phone) at once and stop.
     if (phone == null) {
-      final List<FieldError> errors = <FieldError>[
-        ...validateStudentProfile(input, now: _now()),
-        if (form.photo != null) ...validatePhoto(form.photo!),
-        ...parseErrors,
-      ];
       emit(RegistrationEditing(
         studentForm: form,
         vendorForm: state.vendorForm,
-        fieldErrors: errors,
+        fieldErrors: <FieldError>[
+          ...validateStudentProfile(input, now: _now()),
+          if (form.photo != null) ...validatePhoto(form.photo!),
+          const FieldError(field: _phoneField, message: 'Enter a valid phone number.'),
+        ],
       ));
       return;
     }
 
-    emit(RegistrationSubmitting(
-      studentForm: form,
-      vendorForm: state.vendorForm,
-    ));
+    emit(RegistrationSubmitting(studentForm: form, vendorForm: state.vendorForm));
 
-    final result = await _registerStudent.call(
-      uid: event.uid,
-      input: input,
-      now: _now(),
-    );
-
+    final Result<Student, Failure> result =
+        await _createStudent(uid: event.uid, input: input);
     result.fold(
-      (Student _) => emit(Registered(
-        studentForm: form,
-        vendorForm: state.vendorForm,
-      )),
+      (Student _) =>
+          emit(Registered(studentForm: form, vendorForm: state.vendorForm)),
       (Failure failure) => _emitFailure(emit, failure, studentForm: form),
     );
   }
 
-  /// Validates and registers the Vendor profile, retaining entered values on
-  /// any failure (R2.8).
+  /// Validates then persists the Vendor profile with a Pending approval status,
+  /// retaining entered values on any failure (R2.8, R2.9).
   Future<void> _onVendorSubmitted(
     VendorSubmitted event,
     Emitter<RegistrationState> emit,
   ) async {
     final VendorFormData form = state.vendorForm;
-
     final PhoneNumber? phone = _tryParsePhone(form.phone);
 
     final VendorProfileInput input = VendorProfileInput(
@@ -192,45 +151,95 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
     );
 
     if (phone == null) {
-      final List<FieldError> errors = <FieldError>[
-        ...validateVendorProfile(input),
-        const FieldError(
-          field: _phoneField,
-          message: 'Enter a valid phone number.',
-        ),
-      ];
       emit(RegistrationEditing(
         studentForm: state.studentForm,
         vendorForm: form,
-        fieldErrors: errors,
+        fieldErrors: <FieldError>[
+          ...validateVendorProfile(input),
+          const FieldError(field: _phoneField, message: 'Enter a valid phone number.'),
+        ],
       ));
       return;
     }
 
-    emit(RegistrationSubmitting(
-      studentForm: state.studentForm,
-      vendorForm: form,
-    ));
+    emit(RegistrationSubmitting(studentForm: state.studentForm, vendorForm: form));
 
-    final result = await _registerVendor.call(
-      uid: event.uid,
-      input: input,
-      now: _now(),
-    );
-
+    final Result<Vendor, Failure> result =
+        await _createVendor(uid: event.uid, input: input);
     result.fold(
-      (Vendor _) => emit(Registered(
-        studentForm: state.studentForm,
-        vendorForm: form,
-      )),
+      (Vendor _) =>
+          emit(Registered(studentForm: state.studentForm, vendorForm: form)),
       (Failure failure) => _emitFailure(emit, failure, vendorForm: form),
     );
   }
 
-  /// Maps a use-case [failure] to the right state: a [ValidationFailure]
-  /// becomes a [RegistrationEditing] carrying the per-field errors, while any
-  /// other failure becomes a [RegistrationFailure]. Either way the entered
-  /// values are retained (R1.7, R2.8).
+  /// Validates the input, uploads the photo when present, then persists the
+  /// Student. Returns the first [Failure] encountered (R1.6–R1.9, R14.1, R14.2).
+  Future<Result<Student, Failure>> _createStudent({
+    required String uid,
+    required StudentProfileInput input,
+  }) async {
+    final DateTime now = _now();
+    final List<FieldError> errors = <FieldError>[
+      ...validateStudentProfile(input, now: now),
+      if (input.photo != null) ...validatePhoto(input.photo!),
+    ];
+    if (errors.isNotEmpty) {
+      return Result<Student, Failure>.err(ValidationFailure(fieldErrors: errors));
+    }
+
+    String photoPath = '';
+    if (input.photo != null) {
+      final Result<String, Failure> upload =
+          await _storageRepository.uploadProfilePhoto(uid: uid, photo: input.photo!);
+      final String? path = upload.valueOrNull;
+      if (path == null) {
+        return Result<Student, Failure>.err(upload.failureOrNull!);
+      }
+      photoPath = path;
+    }
+
+    return _profileRepository.createStudent(Student(
+      uid: uid,
+      fullName: input.fullName,
+      phone: input.phone,
+      gender: input.gender!,
+      dateOfBirth: input.dateOfBirth!,
+      city: input.city,
+      heightCm: input.heightCm!,
+      profilePhotoPath: photoPath,
+      createdAt: now,
+      updatedAt: now,
+    ));
+  }
+
+  /// Validates the input then persists the Vendor with a Pending approval
+  /// status (R2.6–R2.9, R14.3).
+  Future<Result<Vendor, Failure>> _createVendor({
+    required String uid,
+    required VendorProfileInput input,
+  }) async {
+    final List<FieldError> errors = validateVendorProfile(input);
+    if (errors.isNotEmpty) {
+      return Result<Vendor, Failure>.err(ValidationFailure(fieldErrors: errors));
+    }
+
+    return _profileRepository.createVendor(Vendor.create(
+      uid: uid,
+      fullName: input.fullName,
+      agencyName: input.agencyName,
+      phone: input.phone,
+      city: input.city,
+      address: input.address,
+      now: _now(),
+      aadhaarOrPan: input.aadhaarOrPan,
+      website: input.website,
+      socialLinks: input.socialLinks,
+    ));
+  }
+
+  /// A [ValidationFailure] becomes [RegistrationEditing] with per-field errors;
+  /// any other failure becomes [RegistrationFailure]. Entered values are kept.
   void _emitFailure(
     Emitter<RegistrationState> emit,
     Failure failure, {
@@ -256,13 +265,10 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
     ));
   }
 
-  /// Parses [raw] into a [PhoneNumber], returning `null` when it is empty or
-  /// malformed so the caller can surface a field error.
+  /// Parses [raw] into a [PhoneNumber], or `null` when empty/malformed.
   PhoneNumber? _tryParsePhone(String raw) {
     final String trimmed = raw.trim();
-    if (trimmed.isEmpty) {
-      return null;
-    }
+    if (trimmed.isEmpty) return null;
     try {
       return PhoneNumber.parse(trimmed);
     } on FormatException {
@@ -270,13 +276,9 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
     }
   }
 
-  /// Parses [raw] height text into centimetres, returning `null` when empty or
-  /// non-numeric so the domain validator reports it as missing/invalid.
+  /// Parses [raw] height text into centimetres, or `null` when empty/non-numeric.
   int? _parseHeight(String raw) {
     final String trimmed = raw.trim();
-    if (trimmed.isEmpty) {
-      return null;
-    }
-    return int.tryParse(trimmed);
+    return trimmed.isEmpty ? null : int.tryParse(trimmed);
   }
 }

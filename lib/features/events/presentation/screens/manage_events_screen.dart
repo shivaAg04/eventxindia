@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/value_objects/event_status.dart';
+import '../../../auth/presentation/widgets/logout_button.dart';
 import '../../../profile/domain/entities/vendor.dart';
 import '../../domain/entities/event.dart';
 import '../bloc/event_management_bloc.dart';
@@ -63,7 +64,10 @@ class _ManageEventsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage events')),
+      appBar: AppBar(
+        title: const Text('Manage events'),
+        actions: const <Widget>[LogoutButton()],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         key: const ValueKey<String>('manage-create-event-fab'),
         onPressed: () => _openCreate(context),

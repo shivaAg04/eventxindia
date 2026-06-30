@@ -82,13 +82,15 @@ class _RoleRouterState extends State<RoleRouter> {
 
   /// Maps an [AuthBloc] state to the domain [SessionState] (R3.4).
   ///
-  /// The bloc collapses "authenticated with no role" to [auth.AuthInitial], so
-  /// only [auth.Authenticated] yields a resolved role; every other auth state
-  /// (idle, OTP in flight, failure, lockout) is treated as unauthenticated for
-  /// navigation purposes, keeping the user on the auth screen.
+  /// [auth.Authenticated] yields a resolved role and [auth.AuthenticatedNoRole]
+  /// maps to the no-role session so the router lands on the no-role/registration
+  /// destination; every other auth state (idle, OTP in flight, failure,
+  /// lockout) is treated as unauthenticated for navigation purposes, keeping the
+  /// user on the auth screen.
   SessionState _sessionFromAuthState(auth.AuthState state) {
     return switch (state) {
       auth.Authenticated(:final role) => Authenticated(role),
+      auth.AuthenticatedNoRole() => const AuthenticatedNoRole(),
       _ => const Unauthenticated(),
     };
   }

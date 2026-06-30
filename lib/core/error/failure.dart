@@ -76,6 +76,20 @@ class AuthFailure extends Failure {
   }) : super(code: 'auth');
 }
 
+/// Signals that OTP verification succeeded and a session now exists, but the
+/// signed-in user has no role/profile yet and must complete registration
+/// before any role-based destination is available (R3.4).
+///
+/// This is deliberately **not** an [AuthFailure]: the code was accepted, so the
+/// auth flow must route to registration (the no-role session state) rather than
+/// treat it as an invalid attempt or increment the lockout counter.
+class RegistrationRequiredFailure extends Failure {
+  const RegistrationRequiredFailure({
+    super.message =
+        'Your profile is incomplete. Please complete registration.',
+  }) : super(code: 'registration_required');
+}
+
 /// An authorization failure.
 ///
 /// Returned when an authenticated user attempts to access a feature or perform
