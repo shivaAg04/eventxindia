@@ -118,7 +118,7 @@ class ApplicationBloc extends Bloc<ApplicationEvent, ApplicationState> {
 
     emit(
       result.fold<ApplicationState>(
-        AttendanceCodeGenerated.new,
+        (String code) => AttendanceCodeGenerated(code, event.kind),
         ApplicationFailure.new,
       ),
     );

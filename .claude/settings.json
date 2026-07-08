@@ -5,7 +5,27 @@
       "Bash(grep -nA12 \"match /students/\" firestore.rules)",
       "Bash(echo \"launched pid $!\")",
       "Bash(echo \"launched preview pid $!\")",
-      "Bash(grep -aB1 \"\\\\[E\\\\]\")"
+      "Bash(grep -aB1 \"\\\\[E\\\\]\")",
+      "Bash(git -C /Users/adda247/development/personal/event-x diff --stat lib/features/applications/presentation/screens/vendor_attendance_screen.dart lib/core/di/use_case_module.dart lib/core/di/injection.config.dart)",
+      "Bash(git -C /Users/adda247/development/personal/event-x diff lib/features/applications/presentation/screens/vendor_attendance_screen.dart)",
+      "Bash(git stash *)",
+      "Bash(adb devices *)",
+      "Bash(adb exec-out *)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell input keyevent KEYCODE_BACK)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 exec-out screencap -p)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 logcat -d)",
+      "Bash(echo \"launched flutter run in background, pid $!\")",
+      "Bash(break)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell input tap 834 452)",
+      "Bash(echo \"relaunching, pid $!\")",
+      "Bash(echo \"launched on 5554, pid $!\")",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell wm size)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell input tap 675 1976)",
+      "Bash(echo \"launched on 5556 pid $!\")",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell input tap 830 2210)",
+      "Bash(echo \"pid $!\")",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell input tap 540 1976)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell input tap 810 283)"
     ]
   }
 }

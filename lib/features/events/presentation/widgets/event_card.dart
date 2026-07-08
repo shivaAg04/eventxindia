@@ -9,11 +9,22 @@ import '../../domain/entities/event.dart';
 /// screen so both render events identically: a gradient icon chip, the title
 /// and location, and a "pay-per-head" pill. Pass [onTap] to make it
 /// interactive (discovery); omit it for read-only lists (dashboard).
+///
+/// When [applied] is true an "Applied" badge is shown so a student can see, in
+/// the list, that they have already applied to this event without opening it.
 class EventCard extends StatelessWidget {
-  const EventCard({required this.event, this.onTap, super.key});
+  const EventCard({
+    required this.event,
+    this.onTap,
+    this.applied = false,
+    super.key,
+  });
 
   final Event event;
   final VoidCallback? onTap;
+
+  /// Whether the signed-in student has already applied to [event].
+  final bool applied;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +86,15 @@ class EventCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      _SeatsLabel(event: event),
+                      Row(
+                        children: <Widget>[
+                          Flexible(child: _SeatsLabel(event: event)),
+                          if (applied) ...<Widget>[
+                            const SizedBox(width: 8),
+                            const _AppliedBadge(),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -102,6 +121,7 @@ class _SeatsLabel extends StatelessWidget {
     final Color color = full ? AppColors.danger : AppColors.textSecondary;
     final int left = event.seatsRemaining;
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Icon(
           full ? Icons.event_busy_outlined : Icons.event_seat_outlined,
@@ -109,17 +129,55 @@ class _SeatsLabel extends StatelessWidget {
           color: color,
         ),
         const SizedBox(width: 4),
-        Text(
-          full
-              ? 'Full'
-              : '$left of ${event.slots} ${left == 1 ? 'seat' : 'seats'} left',
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            full
+                ? 'Full'
+                : '$left of ${event.slots} ${left == 1 ? 'seat' : 'seats'} left',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A compact "Applied" badge shown when the student has already applied to the
+/// event, so the state is visible in the list (not only on the detail screen).
+class _AppliedBadge extends StatelessWidget {
+  const _AppliedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('event-card-applied-badge'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.mint.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.mint.withValues(alpha: 0.4)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.check_circle, size: 12, color: AppColors.mint),
+          SizedBox(width: 4),
+          Text(
+            'Applied',
+            style: TextStyle(
+              color: AppColors.mint,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

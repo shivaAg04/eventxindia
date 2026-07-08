@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../events/domain/repositories/event_repository.dart';
 import '../../domain/entities/application.dart';
 
 /// Base type for every state emitted by the `ApplicationBloc`.
@@ -61,13 +62,17 @@ class ApplicationsLoaded extends ApplicationState {
 
 /// An attendance code was generated and stored for an event (R5.6).
 class AttendanceCodeGenerated extends ApplicationState {
-  const AttendanceCodeGenerated(this.code);
+  const AttendanceCodeGenerated(this.code, this.kind);
 
   /// The generated attendance code.
   final String code;
 
+  /// Whether the code is the start (check-in) or end (check-out) code, so the
+  /// UI can label and retain each code separately.
+  final EventCodeKind kind;
+
   @override
-  List<Object?> get props => <Object?>[code];
+  List<Object?> get props => <Object?>[code, kind];
 }
 
 /// A generic failure state for apply/decide/code-generation actions.

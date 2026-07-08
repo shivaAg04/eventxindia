@@ -11,6 +11,15 @@ import '../repositories/attendance_repository.dart';
 /// location for a check-in to be accepted (R10.3).
 const double kCheckInRadiusMeters = 100.0;
 
+/// Temporary toggle for the check-in location requirement (R10.3, R10.4).
+///
+/// When `false` the device-location presence and radius guards are skipped so a
+/// student can check in without GPS. This is a deliberate, easily-reversible
+/// switch — set it back to `true` to restore location enforcement. Read by the
+/// presentation layer to decide whether to acquire GPS and passed through to
+/// [CheckIn.call] as `enforceLocation`.
+const bool kAttendanceLocationCheckEnabled = false;
+
 /// Records a student's check-in to an event using the vendor's start code and a
 /// GPS-validated device location (R10.1–R10.5, R10.10).
 ///
@@ -72,6 +81,7 @@ class CheckIn {
     required String eventId,
     required String startCode,
     required Result<GeoPoint, Failure> deviceLocation,
+    bool enforceLocation = true,
   }) async {
     final Result<Event, Failure> eventResult =
         await _eventRepository.getById(eventId);
@@ -95,25 +105,27 @@ class CheckIn {
       );
     }
 
-    // R10.4: device location must have been acquired; a timeout/failure is
-    // surfaced as a location-unavailable failure.
     final GeoPoint? location = deviceLocation.valueOrNull;
-    if (location == null) {
-      return Result<AttendanceRecord, Failure>.err(
-        deviceLocation.failureOrNull ??
-            const LocationFailure(
-              message: 'Your device location is unavailable.',
-            ),
-      );
-    }
+    if (enforceLocation) {
+      // R10.4: device location must have been acquired; a timeout/failure is
+      // surfaced as a location-unavailable failure.
+      if (location == null) {
+        return Result<AttendanceRecord, Failure>.err(
+          deviceLocation.failureOrNull ??
+              const LocationFailure(
+                message: 'Your device location is unavailable.',
+              ),
+        );
+      }
 
-    // R10.3: the device must be within the acceptance radius of the event.
-    if (distanceMeters(location, event.location.geo) > kCheckInRadiusMeters) {
-      return const Result<AttendanceRecord, Failure>.err(
-        LocationFailure(
-          message: 'You are too far from the event location to check in.',
-        ),
-      );
+      // R10.3: the device must be within the acceptance radius of the event.
+      if (distanceMeters(location, event.location.geo) > kCheckInRadiusMeters) {
+        return const Result<AttendanceRecord, Failure>.err(
+          LocationFailure(
+            message: 'You are too far from the event location to check in.',
+          ),
+        );
+      }
     }
 
     // R10.5: reject a repeated check-in, leaving any existing record unchanged.
@@ -132,12 +144,14 @@ class CheckIn {
       );
     }
 
-    // R10.1, R10.10: record the check-in and persist it.
+    // R10.1, R10.10: record the check-in and persist it. When location is not
+    // enforced and none was acquired, fall back to the event location so a geo
+    // is still recorded.
     final AttendanceRecord record = AttendanceRecord.checkIn(
       eventId: eventId,
       studentId: studentId,
       checkInTime: _now(),
-      checkInGeo: location,
+      checkInGeo: location ?? event.location.geo,
     );
 
     return _attendanceRepository.checkIn(record);

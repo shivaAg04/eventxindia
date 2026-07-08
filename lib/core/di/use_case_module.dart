@@ -20,6 +20,7 @@ import '../../features/attendance/domain/repositories/attendance_repository.dart
 import '../../features/attendance/domain/usecases/check_in.dart';
 import '../../features/attendance/domain/usecases/check_out.dart';
 import '../../features/attendance/domain/usecases/generate_attendance_code.dart';
+import '../../features/attendance/domain/usecases/watch_event_attendance.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/request_otp.dart';
 import '../../features/auth/domain/usecases/sign_out.dart';
@@ -171,6 +172,12 @@ abstract class UseCaseModule {
         eventRepository: eventRepository,
         generateCode: _generateAttendanceCode,
       );
+
+  @lazySingleton
+  WatchEventAttendance watchEventAttendance(
+    AttendanceRepository attendanceRepository,
+  ) =>
+      WatchEventAttendance(repository: attendanceRepository);
 
   // --- Earnings (R11) ------------------------------------------------------
 

@@ -63,6 +63,8 @@ import '../../features/attendance/domain/usecases/check_in.dart' as _i293;
 import '../../features/attendance/domain/usecases/check_out.dart' as _i25;
 import '../../features/attendance/domain/usecases/generate_attendance_code.dart'
     as _i794;
+import '../../features/attendance/domain/usecases/watch_event_attendance.dart'
+    as _i462;
 import '../../features/attendance/presentation/bloc/attendance_bloc.dart'
     as _i700;
 import '../../features/attendance/presentation/bloc/device_location_service.dart'
@@ -270,6 +272,10 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i961.FirebaseNotificationServiceImpl(
         gh<_i317.FirebaseNotificationDataSource>(),
       ),
+    );
+    gh.lazySingleton<_i462.WatchEventAttendance>(
+      () =>
+          useCaseModule.watchEventAttendance(gh<_i477.AttendanceRepository>()),
     );
     gh.factory<_i30.StudentProfileCubit>(
       () => _i30.StudentProfileCubit(gh<_i894.ProfileRepository>()),

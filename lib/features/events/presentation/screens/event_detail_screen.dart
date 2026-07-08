@@ -25,6 +25,7 @@ class EventDetailScreen extends StatelessWidget {
     required this.event,
     this.studentId,
     this.createApplicationBloc,
+    this.alreadyApplied = false,
     super.key,
   });
 
@@ -38,6 +39,11 @@ class EventDetailScreen extends StatelessWidget {
   /// Factory for the [ApplicationBloc] backing the apply action; `null` for a
   /// read-only view.
   final ApplicationBloc Function()? createApplicationBloc;
+
+  /// Whether the student has already applied to this event (from a previous
+  /// session), so the apply action starts in its disabled "Applied" state
+  /// rather than only reacting to an in-session tap (R9.2).
+  final bool alreadyApplied;
 
   /// Whether this is a student context viewing an event still open for
   /// applications (R8.6, R8.7).
@@ -56,7 +62,11 @@ class EventDetailScreen extends StatelessWidget {
         ? null
         : event.isFull
             ? const _FullBar()
-            : _ApplyBar(studentId: studentId!, eventId: event.eventId);
+            : _ApplyBar(
+                studentId: studentId!,
+                eventId: event.eventId,
+                alreadyApplied: alreadyApplied,
+              );
 
     final Scaffold scaffold = Scaffold(
       appBar: AppBar(title: const Text('Event details')),
@@ -167,10 +177,17 @@ class _FullBar extends StatelessWidget {
 /// ([DuplicateApplication], R9.2) — it settles into a disabled "Applied" state.
 /// Outcomes are also echoed in a snackbar.
 class _ApplyBar extends StatelessWidget {
-  const _ApplyBar({required this.studentId, required this.eventId});
+  const _ApplyBar({
+    required this.studentId,
+    required this.eventId,
+    this.alreadyApplied = false,
+  });
 
   final String studentId;
   final String eventId;
+
+  /// Seeds the disabled "Applied" state for a student who applied previously.
+  final bool alreadyApplied;
 
   @override
   Widget build(BuildContext context) {
@@ -197,8 +214,9 @@ class _ApplyBar extends StatelessWidget {
             }
           },
           builder: (BuildContext context, ApplicationState state) {
-            final bool applied =
-                state is Applied || state is DuplicateApplication;
+            final bool applied = alreadyApplied ||
+                state is Applied ||
+                state is DuplicateApplication;
             final bool busy = state is Applying;
             return FilledButton.icon(
               key: const ValueKey<String>('detail-apply'),

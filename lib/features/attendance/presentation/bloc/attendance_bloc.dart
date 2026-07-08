@@ -61,13 +61,20 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     Emitter<AttendanceState> emit,
   ) async {
     // R10.4: acquire the device location (≤30s) before attempting the check-in.
-    emit(const LocatingDevice());
-    final Result<GeoPoint, Failure> location =
-        await _locationService.currentLocation();
+    // Temporarily gated by [kAttendanceLocationCheckEnabled]: when disabled we
+    // skip GPS acquisition entirely and let the use case bypass the location
+    // guards.
+    Result<GeoPoint, Failure> location = const Result<GeoPoint, Failure>.err(
+      LocationFailure(message: 'Location check disabled.'),
+    );
+    if (kAttendanceLocationCheckEnabled) {
+      emit(const LocatingDevice());
+      location = await _locationService.currentLocation();
 
-    if (location.isErr) {
-      emit(AttendanceFailure(location.failureOrNull!));
-      return;
+      if (location.isErr) {
+        emit(AttendanceFailure(location.failureOrNull!));
+        return;
+      }
     }
 
     emit(const CheckingIn());
@@ -76,6 +83,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       eventId: event.eventId,
       startCode: event.startCode,
       deviceLocation: location,
+      enforceLocation: kAttendanceLocationCheckEnabled,
     );
 
     result.fold(

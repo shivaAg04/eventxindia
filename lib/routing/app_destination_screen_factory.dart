@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../features/admin/presentation/bloc/admin_bloc.dart';
 import '../features/admin/presentation/screens/admin_lists_screen.dart';
 import '../features/admin/presentation/screens/admin_metrics_screen.dart';
+import '../features/attendance/domain/entities/attendance_record.dart';
 import '../features/attendance/presentation/bloc/attendance_bloc.dart';
 import '../features/attendance/presentation/screens/attendance_history_screen.dart';
 import '../features/auth/presentation/screens/phone_entry_screen.dart';
@@ -23,6 +24,7 @@ import '../features/profile/presentation/bloc/student_profile_cubit.dart';
 import '../features/profile/presentation/screens/student_profile_screen.dart';
 import '../features/profile/presentation/screens/student_registration_screen.dart';
 import '../features/profile/presentation/screens/vendor_registration_screen.dart';
+import '../features/applications/domain/entities/application.dart';
 import '../features/applications/presentation/bloc/application_bloc.dart';
 import '../features/applications/presentation/bloc/student_applications_cubit.dart';
 import '../core/error/failure.dart';
@@ -55,6 +57,8 @@ class AppDestinationScreenFactory {
     required this.createStudentProfileCubit,
     required this.createEarningsBloc,
     required this.createEventManagementBloc,
+    required this.watchEventAttendance,
+    required this.watchEventApplications,
     required this.createAdminBloc,
     required this.createRegistrationBloc,
   });
@@ -75,6 +79,17 @@ class AppDestinationScreenFactory {
   final StudentProfileCubit Function() createStudentProfileCubit;
   final EarningsBloc Function() createEarningsBloc;
   final EventManagementBloc Function() createEventManagementBloc;
+
+  /// Streams the attendance records for a single event, backing the vendor's
+  /// per-event attendance view (R5.7).
+  final Stream<List<AttendanceRecord>> Function(String eventId)
+      watchEventAttendance;
+
+  /// Streams the applications for a single event; the approved ones are the
+  /// enrolled students shown in the vendor's attendance view (R5.3, R5.7).
+  final Stream<List<Application>> Function(String eventId)
+      watchEventApplications;
+
   final AdminBloc Function() createAdminBloc;
 
   /// Factory for the [RegistrationBloc] backing the student/vendor registration
@@ -147,6 +162,8 @@ class AppDestinationScreenFactory {
             profileRepository: profileRepository,
             createBloc: createEventManagementBloc,
             createApplicationBloc: createApplicationBloc,
+            watchEventAttendance: watchEventAttendance,
+            watchEventApplications: watchEventApplications,
           ),
         );
       case Destination.vendorApplicants:
@@ -190,12 +207,18 @@ class _VendorEventsLoader extends StatelessWidget {
     required this.profileRepository,
     required this.createBloc,
     required this.createApplicationBloc,
+    required this.watchEventAttendance,
+    required this.watchEventApplications,
   });
 
   final String uid;
   final ProfileRepository profileRepository;
   final EventManagementBloc Function() createBloc;
   final ApplicationBloc Function() createApplicationBloc;
+  final Stream<List<AttendanceRecord>> Function(String eventId)
+      watchEventAttendance;
+  final Stream<List<Application>> Function(String eventId)
+      watchEventApplications;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +242,8 @@ class _VendorEventsLoader extends StatelessWidget {
             vendor: vendor,
             createBloc: createBloc,
             createApplicationBloc: createApplicationBloc,
+            watchEventAttendance: watchEventAttendance,
+            watchEventApplications: watchEventApplications,
           ),
           (_) => const _PendingScreen(title: 'Manage events'),
         );

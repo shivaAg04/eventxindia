@@ -31,8 +31,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final TextEditingController _title = TextEditingController();
   final TextEditingController _description = TextEditingController();
   final TextEditingController _locationLabel = TextEditingController();
-  final TextEditingController _latitude = TextEditingController();
-  final TextEditingController _longitude = TextEditingController();
   final TextEditingController _slots = TextEditingController();
   final TextEditingController _payPerHead = TextEditingController();
 
@@ -40,13 +38,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   DateTime? _startTime;
   DateTime? _endTime;
 
+  /// Placeholder coordinate paired with the location label. Attendance no longer
+  /// uses GPS, so a real coordinate isn't collected; the domain still requires a
+  /// non-null geo, so a fixed value is supplied.
+  static final GeoPoint _defaultGeo = GeoPoint(latitude: 0, longitude: 0);
+
   @override
   void dispose() {
     _title.dispose();
     _description.dispose();
     _locationLabel.dispose();
-    _latitude.dispose();
-    _longitude.dispose();
     _slots.dispose();
     _payPerHead.dispose();
     super.dispose();
@@ -63,23 +64,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       startTime: _startTime,
       endTime: _endTime,
       locationLabel: _locationLabel.text,
-      geo: _parseGeo(),
+      geo: _defaultGeo,
       slots: int.tryParse(_slots.text.trim()),
       payPerHead: _parseMoney(),
     );
-  }
-
-  GeoPoint? _parseGeo() {
-    final double? lat = double.tryParse(_latitude.text.trim());
-    final double? lon = double.tryParse(_longitude.text.trim());
-    if (lat == null || lon == null) {
-      return null;
-    }
-    try {
-      return GeoPoint(latitude: lat, longitude: lon);
-    } on ArgumentError {
-      return null;
-    }
   }
 
   Money? _parseMoney() {
@@ -184,8 +172,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           body: AbsorbPointer(
             absorbing: isCreating,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: <Widget>[
+                const _SectionHeader(
+                  icon: Icons.info_outline,
+                  title: 'Event details',
+                ),
                 _field(
                   controller: _title,
                   label: 'Title',
@@ -199,6 +191,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   fieldKey: 'create-event-description',
                   maxLines: 3,
                 ),
+                const SizedBox(height: 8),
+                const _SectionHeader(
+                  icon: Icons.schedule_outlined,
+                  title: 'Schedule',
+                ),
                 _pickerTile(
                   label: 'Date',
                   value: _date == null
@@ -207,69 +204,75 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           '-${_date!.day.toString().padLeft(2, '0')}',
                   errorText: _errorFor(errors, EventFields.date),
                   onTap: _pickDate,
+                  icon: Icons.calendar_today_outlined,
                 ),
-                _pickerTile(
-                  label: 'Start time',
-                  value: _formatTime(_startTime),
-                  errorText: _errorFor(errors, EventFields.startTime),
-                  onTap: () => _pickTime(isStart: true),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: _pickerTile(
+                        label: 'Start time',
+                        value: _formatTime(_startTime),
+                        errorText: _errorFor(errors, EventFields.startTime),
+                        onTap: () => _pickTime(isStart: true),
+                        icon: Icons.access_time,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _pickerTile(
+                        label: 'End time',
+                        value: _formatTime(_endTime),
+                        errorText: _errorFor(errors, EventFields.endTime),
+                        onTap: () => _pickTime(isStart: false),
+                        icon: Icons.access_time_filled_outlined,
+                      ),
+                    ),
+                  ],
                 ),
-                _pickerTile(
-                  label: 'End time',
-                  value: _formatTime(_endTime),
-                  errorText: _errorFor(errors, EventFields.endTime),
-                  onTap: () => _pickTime(isStart: false),
+                const SizedBox(height: 8),
+                const _SectionHeader(
+                  icon: Icons.place_outlined,
+                  title: 'Location',
                 ),
                 _field(
                   controller: _locationLabel,
-                  label: 'Location',
+                  label: 'Venue / address',
                   errorText: _errorFor(errors, EventFields.location),
                   fieldKey: 'create-event-location',
                 ),
+                const SizedBox(height: 8),
+                const _SectionHeader(
+                  icon: Icons.groups_outlined,
+                  title: 'Capacity & pay',
+                ),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Expanded(
                       child: _field(
-                        controller: _latitude,
-                        label: 'Latitude',
-                        fieldKey: 'create-event-latitude',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          signed: true,
-                          decimal: true,
-                        ),
+                        controller: _slots,
+                        label: 'Slots',
+                        errorText: _errorFor(errors, EventFields.slots),
+                        fieldKey: 'create-event-slots',
+                        keyboardType: TextInputType.number,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _field(
-                        controller: _longitude,
-                        label: 'Longitude',
-                        fieldKey: 'create-event-longitude',
+                        controller: _payPerHead,
+                        label: 'Pay per head (₹)',
+                        errorText: _errorFor(errors, EventFields.payPerHead),
+                        fieldKey: 'create-event-pay',
                         keyboardType: const TextInputType.numberWithOptions(
-                          signed: true,
                           decimal: true,
                         ),
                       ),
                     ),
                   ],
                 ),
-                _field(
-                  controller: _slots,
-                  label: 'Slots',
-                  errorText: _errorFor(errors, EventFields.slots),
-                  fieldKey: 'create-event-slots',
-                  keyboardType: TextInputType.number,
-                ),
-                _field(
-                  controller: _payPerHead,
-                  label: 'Pay per head (₹)',
-                  errorText: _errorFor(errors, EventFields.payPerHead),
-                  fieldKey: 'create-event-pay',
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 FilledButton(
                   key: const ValueKey<String>('create-event-submit'),
                   onPressed: isCreating ? null : () => _submit(context),
@@ -325,6 +328,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     required String label,
     required String value,
     required VoidCallback onTap,
+    IconData icon = Icons.calendar_today_outlined,
     String? errorText,
   }) {
     return Padding(
@@ -342,12 +346,44 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                Text(value),
-                const Icon(Icons.calendar_today_outlined, size: 18),
+                Flexible(
+                  child: Text(value, overflow: TextOverflow.ellipsis),
+                ),
+                const SizedBox(width: 8),
+                Icon(icon, size: 18),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A small icon + label header used to group the create-event form fields.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        ],
       ),
     );
   }

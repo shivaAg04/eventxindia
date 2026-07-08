@@ -11,6 +11,8 @@ import 'core/theme/app_theme.dart';
 import 'features/admin/domain/repositories/admin_repository.dart';
 import 'features/admin/presentation/bloc/admin_bloc.dart';
 import 'features/applications/presentation/bloc/application_bloc.dart';
+import 'features/applications/domain/usecases/watch_event_applications.dart';
+import 'features/attendance/domain/usecases/watch_event_attendance.dart';
 import 'features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'features/auth/domain/entities/session_state.dart' as session;
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -128,6 +130,10 @@ class _RoutedAppState extends State<_RoutedApp> {
       createStudentProfileCubit: () => getIt<StudentProfileCubit>(),
       createEarningsBloc: () => getIt<EarningsBloc>(),
       createEventManagementBloc: () => getIt<EventManagementBloc>(),
+      watchEventAttendance: (String eventId) =>
+          getIt<WatchEventAttendance>()(eventId),
+      watchEventApplications: (String eventId) =>
+          getIt<WatchEventApplications>()(eventId: eventId),
       createAdminBloc: () => getIt<AdminBloc>(),
       createRegistrationBloc: () => getIt<RegistrationBloc>(),
     );

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../applications/domain/entities/application.dart';
 import '../../../applications/presentation/bloc/application_bloc.dart';
+import '../../../applications/presentation/bloc/student_applications_cubit.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/event_filters.dart';
+import '../../domain/event_status_policy.dart';
 import '../bloc/event_discovery_bloc.dart';
 import '../widgets/event_card.dart';
 import 'event_detail_screen.dart';
@@ -23,6 +26,7 @@ class StudentActiveEventsScreen extends StatelessWidget {
     required this.createBloc,
     required this.studentId,
     required this.createApplicationBloc,
+    required this.createStudentApplicationsCubit,
     super.key,
   });
 
@@ -36,10 +40,23 @@ class StudentActiveEventsScreen extends StatelessWidget {
   /// screen each card opens (R8.6).
   final ApplicationBloc Function() createApplicationBloc;
 
+  /// Factory for the [StudentApplicationsCubit] used to learn which events the
+  /// student has already applied to, so cards and the detail screen can reflect
+  /// that persistently (R9.2).
+  final StudentApplicationsCubit Function() createStudentApplicationsCubit;
+
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<EventDiscoveryBloc>(
-      create: (_) => createBloc()..add(const DiscoveryStarted()),
+    return MultiBlocProvider(
+      providers: <BlocProvider<dynamic>>[
+        BlocProvider<EventDiscoveryBloc>(
+          create: (_) => createBloc()..add(const DiscoveryStarted()),
+        ),
+        BlocProvider<StudentApplicationsCubit>(
+          create: (_) =>
+              createStudentApplicationsCubit()..watch(studentId: studentId),
+        ),
+      ],
       child: _ActiveEventsView(
         studentId: studentId,
         createApplicationBloc: createApplicationBloc,
@@ -75,9 +92,15 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
     super.dispose();
   }
 
-  /// Applies search → date-range → sort to the streamed [events].
+  /// Applies past-event exclusion → search → date-range → sort to the streamed
+  /// [events], so events whose date has already passed are not shown as
+  /// joinable.
   List<Event> _visible(List<Event> events) {
-    final List<Event> searched = searchActiveEvents(_query, events);
+    final DateTime now = DateTime.now();
+    final List<Event> upcoming = events
+        .where((Event e) => !isEventPast(e, now))
+        .toList(growable: false);
+    final List<Event> searched = searchActiveEvents(_query, upcoming);
     final List<Event> ranged = filterByDateRange(
       searched,
       start: _range?.start,
@@ -86,17 +109,28 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
     return sortEvents(ranged, _sort);
   }
 
-  void _openDetail(Event event) {
+  void _openDetail(Event event, {required bool applied}) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => EventDetailScreen(
           event: event,
           studentId: widget.studentId,
           createApplicationBloc: widget.createApplicationBloc,
+          alreadyApplied: applied,
         ),
       ),
     );
   }
+
+  /// The set of event ids the student has already applied to (any status), from
+  /// the ambient [StudentApplicationsCubit]. An existing application — approved,
+  /// pending, or rejected — blocks re-applying, so all count as "applied".
+  Set<String> _appliedIds(StudentApplicationsState state) =>
+      state is StudentApplicationsLoaded
+          ? state.applications
+              .map((Application a) => a.eventId)
+              .toSet()
+          : const <String>{};
 
   Future<void> _pickRange() async {
     final DateTime now = DateTime.now();
@@ -113,6 +147,8 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
 
   @override
   Widget build(BuildContext context) {
+    final Set<String> appliedIds =
+        _appliedIds(context.watch<StudentApplicationsCubit>().state);
     return Scaffold(
       appBar: AppBar(title: const Text('Active events')),
       body: Column(
@@ -132,7 +168,7 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
               builder: (BuildContext context, EventDiscoveryState state) {
                 return switch (state) {
                   EventsLoaded(:final List<Event> events) =>
-                    _buildList(_visible(events)),
+                    _buildList(_visible(events), appliedIds),
                   EventsEmpty() => const StudentDashboardMessage(
                       key: ValueKey<String>('active-events-empty'),
                       icon: Icons.event_busy_outlined,
@@ -158,7 +194,7 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
     );
   }
 
-  Widget _buildList(List<Event> events) {
+  Widget _buildList(List<Event> events, Set<String> appliedIds) {
     if (events.isEmpty) {
       return const StudentDashboardMessage(
         key: ValueKey<String>('active-events-no-match'),
@@ -172,10 +208,12 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (BuildContext context, int index) {
         final Event event = events[index];
+        final bool applied = appliedIds.contains(event.eventId);
         return EventCard(
           key: ValueKey<String>('active-event-${event.eventId}'),
           event: event,
-          onTap: () => _openDetail(event),
+          applied: applied,
+          onTap: () => _openDetail(event, applied: applied),
         );
       },
     );
