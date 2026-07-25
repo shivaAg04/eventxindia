@@ -27,6 +27,7 @@ extension ApplicationDtoX on ApplicationDto {
         eventTitle: eventTitle,
         eventLocation: eventLocation,
         eventPayMinorUnits: eventPayMinorUnits,
+        eventCommissionPercent: eventCommissionPercent,
         eventDate: eventDate?.toDate(),
         createdAt: createdAt.toDate(),
         updatedAt: updatedAt.toDate(),
@@ -50,6 +51,7 @@ extension ApplicationEntityX on Application {
         eventTitle: eventTitle,
         eventLocation: eventLocation,
         eventPayMinorUnits: eventPayMinorUnits,
+        eventCommissionPercent: eventCommissionPercent,
         eventDate:
             eventDate == null ? null : Timestamp.fromDate(eventDate!),
         createdAt: Timestamp.fromDate(createdAt),

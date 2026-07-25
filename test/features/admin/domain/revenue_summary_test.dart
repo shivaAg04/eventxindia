@@ -85,13 +85,20 @@ void main() {
     expect(s.revenue, Money.fromMajorUnits(1000, requirePayPerHeadRange: false));
     expect(
         s.distributed, Money.fromMajorUnits(300, requirePayPerHeadRange: false));
-    expect(s.platformShare,
-        Money.fromMajorUnits(700, requirePayPerHeadRange: false));
-    // 3 completed × ₹100 (done) + 2 completed × ₹50 (live) = 400.
+    // Commission is 10% (default snapshot) of the ₹300 distributed = ₹30.
+    expect(s.platformCommission,
+        Money.fromMajorUnits(30, requirePayPerHeadRange: false));
+    // Students take home the NET of the 10% commission across every event:
+    // 3 × (₹100−₹10) + 2 × (₹50−₹5) = 270 + 90 = 360.
     expect(s.studentsEarnedAll,
-        Money.fromMajorUnits(400, requirePayPerHeadRange: false));
+        Money.fromMajorUnits(360, requirePayPerHeadRange: false));
     expect(s.events.single.eventId, 'done');
     expect(s.events.single.completedCount, 3);
+    // The completed 'done' event: ₹300 gross distributed → ₹270 net to students.
+    expect(s.events.single.studentEarnings,
+        Money.fromMajorUnits(270, requirePayPerHeadRange: false));
+    expect(s.events.single.platformCommission,
+        Money.fromMajorUnits(30, requirePayPerHeadRange: false));
   });
 
   test('empty inputs yield a zero summary', () {

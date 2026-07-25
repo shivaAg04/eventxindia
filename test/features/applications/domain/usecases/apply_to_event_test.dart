@@ -112,6 +112,9 @@ void main() {
       expect(created.eventTitle, 'Catering Help');
       expect(created.eventLocation, 'Grand Hall');
       expect(created.eventPayMinorUnits, 50000);
+      // The event's commission rate is snapshotted so the wallet nets each
+      // credit at the rate in force when the student applied (default 10%).
+      expect(created.eventCommissionPercent, 10);
       expect(created.eventDate, DateTime(2025, 6, 1));
     });
 

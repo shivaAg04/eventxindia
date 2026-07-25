@@ -8,6 +8,8 @@ import '../../../attendance/domain/entities/attendance_record.dart';
 import '../../../auth/presentation/widgets/logout_button.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../events/domain/event_status_policy.dart';
+import '../../../config/presentation/bloc/platform_config_cubit.dart';
+import '../../../config/presentation/screens/admin_settings_screen.dart';
 import '../../../profile/domain/entities/student.dart';
 import '../../../profile/domain/entities/vendor.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
@@ -37,6 +39,14 @@ import 'admin_vendor_detail_screen.dart';
 /// The screen owns its [AdminBloc], built from the injected [createBloc]
 /// factory and started with [ListsWatchStarted]; it never talks to a use case
 /// or repository directly.
+/// Sets an event's admin moderation status (approve/reject) and reports whether
+/// the write succeeded, so the admin lists can show a confirmation. Publishing
+/// an event to students is exactly moving it to [ApprovalStatus.approved].
+typedef SetEventApprovalFn = Future<bool> Function(
+  String eventId,
+  ApprovalStatus status,
+);
+
 class AdminListsScreen extends StatelessWidget {
   const AdminListsScreen({
     required this.createBloc,
@@ -50,8 +60,13 @@ class AdminListsScreen extends StatelessWidget {
     required this.watchStudentAttendance,
     required this.watchEventRatings,
     required this.watchStudentRatings,
+    required this.createPlatformConfigCubit,
+    required this.setEventApproval,
     super.key,
   });
+
+  /// Approves or rejects an event's publish gate (R6 admin moderation).
+  final SetEventApprovalFn setEventApproval;
 
   /// Factory for the screen's [AdminBloc] (typically resolved from DI).
   final AdminBloc Function() createBloc;
@@ -79,6 +94,9 @@ class AdminListsScreen extends StatelessWidget {
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
 
+  /// Factory for the platform-settings [PlatformConfigCubit].
+  final PlatformConfigCubit Function() createPlatformConfigCubit;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<AdminBloc>(
@@ -94,6 +112,8 @@ class AdminListsScreen extends StatelessWidget {
         watchStudentAttendance: watchStudentAttendance,
         watchEventRatings: watchEventRatings,
         watchStudentRatings: watchStudentRatings,
+        createPlatformConfigCubit: createPlatformConfigCubit,
+        setEventApproval: setEventApproval,
       ),
     );
   }
@@ -111,8 +131,11 @@ class _AdminListsView extends StatelessWidget {
     required this.watchStudentAttendance,
     required this.watchEventRatings,
     required this.watchStudentRatings,
+    required this.createPlatformConfigCubit,
+    required this.setEventApproval,
   });
 
+  final SetEventApprovalFn setEventApproval;
   final AdminRevenueCubit Function() createAdminRevenueCubit;
   final WithdrawalReviewCubit Function() createWithdrawalReviewCubit;
   final WalletCubit Function() createWalletCubit;
@@ -128,6 +151,7 @@ class _AdminListsView extends StatelessWidget {
   final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+  final PlatformConfigCubit Function() createPlatformConfigCubit;
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +160,21 @@ class _AdminListsView extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin'),
-          actions: const <Widget>[LogoutButton()],
+          actions: <Widget>[
+            IconButton(
+              key: const ValueKey<String>('admin-open-settings'),
+              tooltip: 'Platform settings',
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => AdminSettingsScreen(
+                    createCubit: createPlatformConfigCubit,
+                  ),
+                ),
+              ),
+            ),
+            const LogoutButton(),
+          ],
           bottom: const TabBar(
             isScrollable: true,
             tabs: <Widget>[
@@ -287,7 +325,11 @@ class _AdminListsView extends StatelessWidget {
                       ),
                 loading
                     ? const Center(child: CircularProgressIndicator())
-                    : _EventList(events: events, onOpenEvent: openEvent),
+                    : _EventList(
+                        events: events,
+                        onOpenEvent: openEvent,
+                        onSetApproval: setEventApproval,
+                      ),
                 AdminWithdrawalsTab(
                   createCubit: createWithdrawalReviewCubit,
                   studentNames: studentNames,
@@ -409,10 +451,15 @@ enum _EventFilter { all, active, closed, completed }
 /// The event list (R6.6) with a search field and a status filter, each event
 /// with its lifecycle status; an empty-state indication when none match (R6.9).
 class _EventList extends StatefulWidget {
-  const _EventList({required this.events, required this.onOpenEvent});
+  const _EventList({
+    required this.events,
+    required this.onOpenEvent,
+    required this.onSetApproval,
+  });
 
   final List<Event> events;
   final void Function(BuildContext context, String eventId) onOpenEvent;
+  final SetEventApprovalFn onSetApproval;
 
   @override
   State<_EventList> createState() => _EventListState();
@@ -435,6 +482,25 @@ class _EventListState extends State<_EventList> {
         _EventFilter.closed => EventStatus.closed,
         _EventFilter.completed => EventStatus.completed,
       };
+
+  /// Approves or rejects [event]. The events list stream re-emits after the
+  /// write, so the row's controls update themselves; here we only confirm.
+  Future<void> _moderate(
+    BuildContext context,
+    Event event,
+    ApprovalStatus status,
+  ) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final bool ok = await widget.onSetApproval(event.eventId, status);
+    final String message = !ok
+        ? 'Could not update the event. Please try again.'
+        : status == ApprovalStatus.approved
+            ? '"${event.title}" approved and published.'
+            : '"${event.title}" rejected.';
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -510,17 +576,12 @@ class _EventListState extends State<_EventList> {
                   itemCount: visible.length,
                   itemBuilder: (context, index) {
                     final Event event = visible[index];
-                    return ListTile(
-                      key: ValueKey<String>('event-${event.eventId}'),
-                      leading: const Icon(Icons.event_outlined),
-                      title: Text(event.title),
-                      subtitle: Text(
-                        '${event.slots} slots • ₹${event.payPerHead.formatted}',
-                      ),
-                      trailing: _StatusChip(
-                        label: effectiveEventStatus(event, now).wireName,
-                      ),
-                      onTap: () => widget.onOpenEvent(context, event.eventId),
+                    return _AdminEventTile(
+                      event: event,
+                      statusLabel: effectiveEventStatus(event, now).wireName,
+                      onOpen: () => widget.onOpenEvent(context, event.eventId),
+                      onModerate: (ApprovalStatus status) =>
+                          _moderate(context, event, status),
                     );
                   },
                 ),
@@ -539,6 +600,116 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Chip(label: Text(label));
+  }
+}
+
+/// One event row in the admin event list. Uses a [Card]+[Column] (not a
+/// [ListTile]) so the moderation controls and multi-line badges can lay out
+/// freely without hitting ListTile's rigid height constraints.
+class _AdminEventTile extends StatelessWidget {
+  const _AdminEventTile({
+    required this.event,
+    required this.statusLabel,
+    required this.onOpen,
+    required this.onModerate,
+  });
+
+  final Event event;
+  final String statusLabel;
+  final VoidCallback onOpen;
+  final void Function(ApprovalStatus status) onModerate;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool pending = event.approvalStatus == ApprovalStatus.pending;
+    final bool rejected = event.approvalStatus == ApprovalStatus.rejected;
+    return Card(
+      key: ValueKey<String>('event-${event.eventId}'),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  const Icon(Icons.event_outlined, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          event.title,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${event.slots} slots • ₹${event.payPerHead.formatted}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      _StatusChip(label: statusLabel),
+                      if (pending || rejected) ...<Widget>[
+                        const SizedBox(height: 4),
+                        Text(
+                          pending ? 'Pending review' : 'Rejected',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: pending
+                                ? Colors.orange.shade800
+                                : Colors.red.shade700,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+              if (pending) ...<Widget>[
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: FilledButton(
+                        key: ValueKey<String>('event-approve-${event.eventId}'),
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => onModerate(ApprovalStatus.approved),
+                        child: const Text('Approve'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        key: ValueKey<String>('event-reject-${event.eventId}'),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => onModerate(ApprovalStatus.rejected),
+                        child: const Text('Reject'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

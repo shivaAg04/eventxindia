@@ -99,7 +99,7 @@ class EventCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                _PayPill(amount: event.payPerHead.formatted),
+                _PayPill(amount: event.studentNetPayPerHead.formatted),
               ],
             ),
           ),

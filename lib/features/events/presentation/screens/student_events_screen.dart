@@ -14,6 +14,7 @@ import '../../../attendance/presentation/screens/check_out_screen.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
 import '../../../ratings/presentation/widgets/star_rating_bar.dart';
 import '../../domain/entities/event.dart';
+import '../../domain/event_finance.dart';
 import '../../domain/event_status_policy.dart';
 import 'event_detail_screen.dart';
 
@@ -319,7 +320,7 @@ class _EventCard extends StatelessWidget {
     final List<String> detailBits = <String>[
       if (application.eventLocation != null) application.eventLocation!,
       if (application.eventPayMinorUnits != null)
-        '₹${Money.fromMinorUnits(application.eventPayMinorUnits!, requirePayPerHeadRange: false).formatted}',
+        '₹${Money.fromMinorUnits(splitCommission(application.eventPayMinorUnits!, application.eventCommissionPercent ?? 0).studentNetMinor, requirePayPerHeadRange: false).formatted}',
       if (application.eventDate != null) _formatDate(application.eventDate!),
     ];
 

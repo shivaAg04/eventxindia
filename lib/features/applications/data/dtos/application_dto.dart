@@ -24,6 +24,7 @@ class ApplicationDto {
     this.eventTitle,
     this.eventLocation,
     this.eventPayMinorUnits,
+    this.eventCommissionPercent,
     this.eventDate,
   });
 
@@ -51,6 +52,7 @@ class ApplicationDto {
   final String? eventTitle;
   final String? eventLocation;
   final int? eventPayMinorUnits;
+  final int? eventCommissionPercent;
   final Timestamp? eventDate;
 
   /// Creation timestamp in Firestore-native form.
@@ -78,6 +80,8 @@ class ApplicationDto {
       eventTitle: data['eventTitle'] as String?,
       eventLocation: data['eventLocation'] as String?,
       eventPayMinorUnits: (data['eventPayMinorUnits'] as num?)?.toInt(),
+      eventCommissionPercent:
+          (data['eventCommissionPercent'] as num?)?.toInt(),
       eventDate: data['eventDate'] as Timestamp?,
       createdAt: data['createdAt'] as Timestamp,
       updatedAt: data['updatedAt'] as Timestamp,
@@ -96,6 +100,8 @@ class ApplicationDto {
         if (eventTitle != null) 'eventTitle': eventTitle,
         if (eventLocation != null) 'eventLocation': eventLocation,
         if (eventPayMinorUnits != null) 'eventPayMinorUnits': eventPayMinorUnits,
+        if (eventCommissionPercent != null)
+          'eventCommissionPercent': eventCommissionPercent,
         if (eventDate != null) 'eventDate': eventDate,
         'createdAt': createdAt,
         'updatedAt': updatedAt,

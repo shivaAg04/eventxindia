@@ -30,6 +30,7 @@ import '../../features/events/domain/repositories/event_repository.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/events/domain/usecases/change_event_status.dart';
 import '../../features/events/domain/usecases/create_event.dart';
+import '../../features/events/domain/usecases/set_event_approval.dart';
 import '../../features/events/domain/usecases/get_event.dart';
 import '../../features/events/domain/usecases/search_active_events.dart';
 import '../../features/events/domain/usecases/watch_active_events.dart';
@@ -50,6 +51,10 @@ import '../../features/ratings/domain/repositories/rating_repository.dart';
 import '../../features/ratings/domain/usecases/rate_student.dart';
 import '../../features/ratings/domain/usecases/watch_event_ratings.dart';
 import '../../features/ratings/domain/usecases/watch_student_ratings.dart';
+import '../../features/config/domain/repositories/platform_config_repository.dart';
+import '../../features/config/domain/usecases/get_commission_percent.dart';
+import '../../features/config/domain/usecases/set_commission_percent.dart';
+import '../../features/config/domain/usecases/watch_commission_percent.dart';
 
 /// Composition-root bindings for the domain use cases.
 ///
@@ -89,12 +94,42 @@ abstract class UseCaseModule {
   // --- Events: management & discovery (R5, R7, R8) -------------------------
 
   @lazySingleton
-  CreateEvent createEvent(EventRepository repository) =>
-      CreateEvent(repository: repository);
+  CreateEvent createEvent(
+    EventRepository repository,
+    PlatformConfigRepository configRepository,
+  ) =>
+      CreateEvent(
+        repository: repository,
+        configRepository: configRepository,
+      );
+
+  // --- Platform config: commission (admin) ---------------------------------
+
+  @lazySingleton
+  GetCommissionPercent getCommissionPercent(
+    PlatformConfigRepository repository,
+  ) =>
+      GetCommissionPercent(repository: repository);
+
+  @lazySingleton
+  WatchCommissionPercent watchCommissionPercent(
+    PlatformConfigRepository repository,
+  ) =>
+      WatchCommissionPercent(repository: repository);
+
+  @lazySingleton
+  SetCommissionPercent setCommissionPercent(
+    PlatformConfigRepository repository,
+  ) =>
+      SetCommissionPercent(repository: repository);
 
   @lazySingleton
   ChangeEventStatus changeEventStatus(EventRepository repository) =>
       ChangeEventStatus(repository: repository);
+
+  @lazySingleton
+  SetEventApproval setEventApproval(EventRepository repository) =>
+      SetEventApproval(repository: repository);
 
   @lazySingleton
   WatchVendorEvents watchVendorEvents(EventRepository repository) =>

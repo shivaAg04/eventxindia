@@ -97,10 +97,15 @@ class AdminDocumentMappers {
         requirePayPerHeadRange: false,
       ),
       status: EventStatusX.parse(data['status'] as String),
+      approvalStatus: ApprovalStatusX.parse(
+        (data['approvalStatus'] as String?) ?? 'Approved',
+      ),
       startCode: data['startCode'] as String?,
       endCode: data['endCode'] as String?,
       createdAt: _dateTime(data['createdAt']),
       updatedAt: _dateTime(data['updatedAt']),
+      platformCommissionPercent:
+          (data['platformCommissionPercent'] as num?)?.toInt() ?? 10,
     );
   }
 

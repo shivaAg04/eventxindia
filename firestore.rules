@@ -145,13 +145,25 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if isSignedIn();
 
+      // A vendor creates their own event as UNPUBLISHED: it must start Active in
+      // lifecycle but Pending admin approval, so a vendor can never self-publish
+      // an event to students.
       allow create: if isSignedIn()
         && request.resource.data.vendorId == request.auth.uid
         && requesterIsApprovedVendor()
-        && request.resource.data.status == 'Active';
+        && request.resource.data.status == 'Active'
+        && request.resource.data.approvalStatus == 'Pending';
 
+      // The owning vendor may edit their event but MUST NOT change the moderation
+      // gate — only an admin can approve/reject (publish) an event.
       allow update: if isSignedIn()
         && resource.data.vendorId == request.auth.uid
+        && unchanged('vendorId')
+        && unchanged('approvalStatus');
+
+      // An admin may moderate any event (set approvalStatus) without owning it;
+      // the vendor id is fixed.
+      allow update: if isAdmin()
         && unchanged('vendorId');
 
       allow delete: if isSignedIn()
@@ -369,6 +381,17 @@ service cloud.firestore {
         && request.resource.data.stars <= 5;
 
       allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // config/{docId}  (e.g. config/platform)
+    //  - Platform-wide settings (the commission percentage). Any signed-in user
+    //    may read it (a vendor reads the current rate when creating an event to
+    //    snapshot onto it); only an Admin may write it.
+    // ---------------------------------------------------------------------
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // ---------------------------------------------------------------------

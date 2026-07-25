@@ -1,3 +1,4 @@
+import 'package:eventxindia/core/value_objects/approval_status.dart';
 import 'package:eventxindia/core/value_objects/event_status.dart';
 import 'package:eventxindia/core/value_objects/geo_point.dart';
 import 'package:eventxindia/core/value_objects/money.dart';
@@ -37,6 +38,18 @@ void main() {
       expect(event.slots, 25);
       expect(event.startCode, isNull);
       expect(event.endCode, isNull);
+      // Defaults to approved so events built/read without the moderation gate
+      // (e.g. pre-existing docs) stay published.
+      expect(event.approvalStatus, ApprovalStatus.approved);
+      expect(event.isPublished, isTrue);
+    });
+
+    test('copyWith replaces the moderation approvalStatus', () {
+      final event = buildEvent();
+      final pending = event.copyWith(approvalStatus: ApprovalStatus.pending);
+      expect(pending.approvalStatus, ApprovalStatus.pending);
+      expect(pending.isPublished, isFalse);
+      expect(pending.eventId, event.eventId);
     });
 
     test('is value-equal when all fields match', () {

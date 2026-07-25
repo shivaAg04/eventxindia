@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import '../../../../core/data/write_retry.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../core/value_objects/approval_status.dart';
 import '../../../../core/value_objects/event_status.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/repositories/event_repository.dart';
@@ -48,6 +49,9 @@ class FirestoreEventRepositoryImpl implements EventRepository {
     return _dataSource.watchActive().map(
           (snapshot) => snapshot.docs
               .map((doc) => EventDto.fromFirestore(doc).toEntity())
+              // Only admin-approved events are published to students; drop those
+              // still pending review or rejected.
+              .where((Event event) => event.isPublished)
               .toList(),
         );
   }
@@ -121,6 +125,23 @@ class FirestoreEventRepositoryImpl implements EventRepository {
       () async {
         await _dataSource.update(eventId, <String, dynamic>{
           'approvedCount': approvedCount,
+          'updatedAt': _now(),
+        });
+        return _requireEvent(eventId);
+      },
+    );
+  }
+
+  @override
+  Future<Result<Event, Failure>> setApprovalStatus(
+    String eventId,
+    ApprovalStatus status,
+  ) {
+    return withRetry<Event>(
+      kDefaultMaxWriteAttempts,
+      () async {
+        await _dataSource.update(eventId, <String, dynamic>{
+          'approvalStatus': status.wireName,
           'updatedAt': _now(),
         });
         return _requireEvent(eventId);

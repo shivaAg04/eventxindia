@@ -2,6 +2,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/approval_status.dart';
 import '../../../../core/value_objects/event_status.dart';
+import '../../../config/domain/repositories/platform_config_repository.dart';
 import '../../../profile/domain/entities/vendor.dart';
 import '../entities/event.dart';
 import '../entities/event_location.dart';
@@ -19,16 +20,22 @@ import '../validators/event_validators.dart';
 ///    with a [ValidationFailure] carrying the exact set of field errors so the
 ///    presentation layer can highlight them while retaining the user's input
 ///    (R7.2, R7.3).
-/// 3. Build the [Event] in [EventStatus.active] (R7.4) and persist it via
-///    [EventRepository.create] (R7.6).
+/// 3. Build the [Event] in [EventStatus.active] (R7.4) but
+///    [ApprovalStatus.pending] — an event is **not published** until an admin
+///    approves it, so it stays out of student discovery until then — and
+///    persist it via [EventRepository.create] (R7.6).
 ///
 /// This use case depends only on the abstract [EventRepository], so it is
 /// unaffected by the choice of backend.
 class CreateEvent {
-  const CreateEvent({required EventRepository repository})
-      : _repository = repository;
+  const CreateEvent({
+    required EventRepository repository,
+    required PlatformConfigRepository configRepository,
+  })  : _repository = repository,
+        _configRepository = configRepository;
 
   final EventRepository _repository;
+  final PlatformConfigRepository _configRepository;
 
   /// Authorizes, validates, then creates the event.
   ///
@@ -56,6 +63,15 @@ class CreateEvent {
       );
     }
 
+    // Snapshot the platform commission rate in force *now* onto the event, so a
+    // later change to the platform-wide rate never affects this event. A read
+    // failure falls back to the default (the repository already defaults), so
+    // creation is never blocked by config being unavailable.
+    final Result<int, Failure> percentResult =
+        await _configRepository.getCommissionPercent();
+    final int commissionPercent =
+        percentResult.valueOrNull ?? kDefaultCommissionPercent;
+
     // Safe: validation above guarantees presence and structural validity of
     // every field used to build the event.
     final Event event = Event(
@@ -70,8 +86,11 @@ class CreateEvent {
       slots: input.slots!,
       payPerHead: input.payPerHead!,
       status: EventStatus.active,
+      // Not published until an admin approves — kept out of student discovery.
+      approvalStatus: ApprovalStatus.pending,
       createdAt: now,
       updatedAt: now,
+      platformCommissionPercent: commissionPercent,
     );
 
     return _repository.create(event);

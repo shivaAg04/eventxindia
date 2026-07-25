@@ -127,8 +127,8 @@ class EventDetailScreen extends StatelessWidget {
           ),
           _DetailRow(
             icon: Icons.payments_outlined,
-            label: 'Pay per head',
-            value: '₹${event.payPerHead.formatted}',
+            label: 'You earn (per head)',
+            value: '₹${event.studentNetPayPerHead.formatted}',
           ),
         ],
       );

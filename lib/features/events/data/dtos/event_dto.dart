@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 
+import '../../../../core/value_objects/approval_status.dart';
 import '../../../../core/value_objects/event_status.dart';
 import '../../../../core/value_objects/geo_point.dart';
 import '../../../../core/value_objects/money.dart';
@@ -44,6 +45,8 @@ class EventDto {
     this.startCode,
     this.endCode,
     this.approvedCount = 0,
+    this.platformCommissionPercent = 10,
+    this.approvalStatus = 'Approved',
   });
 
   /// The unique identifier of the event (matches the document id).
@@ -82,9 +85,17 @@ class EventDto {
   /// The event status wire-name (`Active` | `Closed` | `Completed`).
   final String status;
 
+  /// The admin moderation wire-name (`Pending` | `Approved` | `Rejected`);
+  /// defaults to `Approved` for documents written before this gate existed.
+  final String approvalStatus;
+
   /// The number of approved applicants; defaults to 0 for documents written
   /// before this field existed.
   final int approvedCount;
+
+  /// The platform commission percentage snapshotted at creation; defaults to 10
+  /// for documents written before this field existed.
+  final int platformCommissionPercent;
 
   /// The attendance check-in code, or `null` until generated.
   final String? startCode;
@@ -116,7 +127,10 @@ class EventDto {
       slots: (data['slots'] as num).toInt(),
       payPerHeadMinorUnits: (data['payPerHead'] as num).toInt(),
       status: data['status'] as String,
+      approvalStatus: data['approvalStatus'] as String? ?? 'Approved',
       approvedCount: (data['approvedCount'] as num?)?.toInt() ?? 0,
+      platformCommissionPercent:
+          (data['platformCommissionPercent'] as num?)?.toInt() ?? 10,
       startCode: data['startCode'] as String?,
       endCode: data['endCode'] as String?,
       createdAt: (data['createdAt'] as fs.Timestamp).toDate(),
@@ -142,7 +156,9 @@ class EventDto {
       slots: event.slots,
       payPerHeadMinorUnits: event.payPerHead.minorUnits,
       status: event.status.wireName,
+      approvalStatus: event.approvalStatus.wireName,
       approvedCount: event.approvedCount,
+      platformCommissionPercent: event.platformCommissionPercent,
       startCode: event.startCode,
       endCode: event.endCode,
       createdAt: event.createdAt,
@@ -171,7 +187,9 @@ class EventDto {
       'slots': slots,
       'payPerHead': payPerHeadMinorUnits,
       'status': status,
+      'approvalStatus': approvalStatus,
       'approvedCount': approvedCount,
+      'platformCommissionPercent': platformCommissionPercent,
       if (startCode != null) 'startCode': startCode,
       if (endCode != null) 'endCode': endCode,
       'createdAt': fs.Timestamp.fromDate(createdAt),
@@ -199,7 +217,9 @@ class EventDto {
       slots: slots,
       payPerHead: Money.fromMinorUnits(payPerHeadMinorUnits),
       status: EventStatusX.parse(status),
+      approvalStatus: ApprovalStatusX.parse(approvalStatus),
       approvedCount: approvedCount,
+      platformCommissionPercent: platformCommissionPercent,
       startCode: startCode,
       endCode: endCode,
       createdAt: createdAt,

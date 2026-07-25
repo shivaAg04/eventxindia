@@ -24,7 +24,7 @@ class RevenueLoaded extends AdminRevenueState {
         summary.completedEventCount,
         summary.revenue,
         summary.distributed,
-        summary.platformShare,
+        summary.platformCommission,
         summary.studentsEarnedAll,
       ];
 }

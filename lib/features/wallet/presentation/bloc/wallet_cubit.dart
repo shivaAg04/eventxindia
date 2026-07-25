@@ -11,6 +11,7 @@ import '../../../applications/domain/entities/application.dart';
 import '../../../applications/domain/usecases/watch_student_applications.dart';
 import '../../../attendance/domain/entities/attendance_record.dart';
 import '../../../attendance/domain/repositories/attendance_repository.dart';
+import '../../../events/domain/event_finance.dart';
 import '../../domain/entities/wallet.dart';
 import '../../domain/entities/withdrawal_request.dart';
 import '../../domain/usecases/request_withdrawal.dart';
@@ -106,14 +107,20 @@ class WalletCubit extends Cubit<WalletState> {
       return;
     }
 
-    // The pay and title for each event, from the application's snapshot.
+    // The student's NET pay and title for each event, from the application's
+    // snapshot. Net = the event's pay-per-head minus the platform commission at
+    // the rate snapshotted when the student applied, so the wallet shows what
+    // the student actually takes home (e.g. ₹100 pay at 10% ⇒ ₹90). A missing
+    // commission snapshot (pre-commission records) means no deduction.
     final Map<String, Money> payByEvent = <String, Money>{};
     final Map<String, String> titleByEvent = <String, String>{};
     for (final Application a in _applications) {
       final int? pay = a.eventPayMinorUnits;
       if (pay != null) {
+        final int netMinor =
+            splitCommission(pay, a.eventCommissionPercent ?? 0).studentNetMinor;
         payByEvent[a.eventId] =
-            Money.fromMinorUnits(pay, requirePayPerHeadRange: false);
+            Money.fromMinorUnits(netMinor, requirePayPerHeadRange: false);
       }
       final String? title = a.eventTitle;
       if (title != null && title.isNotEmpty) {

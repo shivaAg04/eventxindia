@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:eventxindia/core/error/failure.dart';
 import 'package:eventxindia/core/result/result.dart';
+import 'package:eventxindia/core/value_objects/approval_status.dart';
 import 'package:eventxindia/core/value_objects/event_status.dart';
 import 'package:eventxindia/features/applications/domain/entities/application.dart';
 import 'package:eventxindia/features/applications/domain/repositories/application_repository.dart';
@@ -87,6 +88,20 @@ class FakeEventRepository implements EventRepository {
       return const Result<Event, Failure>.err(NotFoundFailure());
     }
     final Event updated = event.copyWith(approvedCount: approvedCount);
+    _events[eventId] = updated;
+    return Result<Event, Failure>.ok(updated);
+  }
+
+  @override
+  Future<Result<Event, Failure>> setApprovalStatus(
+    String eventId,
+    ApprovalStatus status,
+  ) async {
+    final Event? event = _events[eventId];
+    if (event == null) {
+      return const Result<Event, Failure>.err(NotFoundFailure());
+    }
+    final Event updated = event.copyWith(approvalStatus: status);
     _events[eventId] = updated;
     return Result<Event, Failure>.ok(updated);
   }

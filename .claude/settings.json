@@ -43,7 +43,11 @@
       "Bash(command -v gcloud)",
       "Bash(gcloud auth *)",
       "Bash(npm install *)",
-      "Bash(GOOGLE_APPLICATION_CREDENTIALS=/private/tmp/claude-501/-Users-adda247-development-personal-event-x/968d2b22-c364-4160-918c-df735b1ccc18/scratchpad/adc.json node seed_admin.js)"
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=/private/tmp/claude-501/-Users-adda247-development-personal-event-x/968d2b22-c364-4160-918c-df735b1ccc18/scratchpad/adc.json node seed_admin.js)",
+      "Bash(firebase firestore:delete events --recursive --force)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(sed -n '/Event eventFromDoc/,/^  }/p' lib/features/admin/data/mappers/admin_document_mappers.dart)",
+      "Bash(sed -n '/match \\\\/events\\\\//,/^    }/p' firestore.rules)"
     ]
   }
 }

@@ -90,6 +90,7 @@ class ApplyToEvent {
       eventTitle: event.title,
       eventLocation: event.location.label,
       eventPayMinorUnits: event.payPerHead.minorUnits,
+      eventCommissionPercent: event.platformCommissionPercent,
       eventDate: event.date,
     );
 

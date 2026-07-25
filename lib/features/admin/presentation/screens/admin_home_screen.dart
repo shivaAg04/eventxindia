@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../applications/domain/entities/application.dart';
 import '../../../attendance/domain/entities/attendance_record.dart';
 import '../../../events/domain/entities/event.dart';
+import '../../../config/presentation/bloc/platform_config_cubit.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
 import '../../../wallet/presentation/bloc/wallet_cubit.dart';
 import '../../../wallet/presentation/bloc/withdrawal_review_cubit.dart';
@@ -31,8 +32,13 @@ class AdminHomeScreen extends StatefulWidget {
     required this.watchStudentAttendance,
     required this.watchEventRatings,
     required this.watchStudentRatings,
+    required this.createPlatformConfigCubit,
+    required this.setEventApproval,
     super.key,
   });
+
+  /// Approves or rejects an event's publish gate (admin moderation).
+  final SetEventApprovalFn setEventApproval;
 
   /// Factory for the [AdminBloc] backing the metrics and lists views.
   final AdminBloc Function() createBloc;
@@ -65,6 +71,9 @@ class AdminHomeScreen extends StatefulWidget {
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
 
+  /// Factory for the platform-settings [PlatformConfigCubit].
+  final PlatformConfigCubit Function() createPlatformConfigCubit;
+
   @override
   State<AdminHomeScreen> createState() => _AdminHomeScreenState();
 }
@@ -86,6 +95,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       watchStudentAttendance: widget.watchStudentAttendance,
       watchEventRatings: widget.watchEventRatings,
       watchStudentRatings: widget.watchStudentRatings,
+      createPlatformConfigCubit: widget.createPlatformConfigCubit,
+      setEventApproval: widget.setEventApproval,
     ),
   ];
 

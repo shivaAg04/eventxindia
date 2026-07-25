@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../core/value_objects/approval_status.dart';
 import '../../../../core/value_objects/event_status.dart';
 import '../../../applications/domain/entities/application.dart';
 import '../../../applications/presentation/bloc/application_bloc.dart';
@@ -13,6 +14,7 @@ import '../../../attendance/domain/entities/attendance_record.dart';
 import '../../../auth/presentation/widgets/logout_button.dart';
 import '../../../profile/domain/entities/student.dart';
 import '../../../profile/domain/entities/vendor.dart';
+import '../../../profile/presentation/screens/vendor_profile_screen.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/event_status_policy.dart';
@@ -156,7 +158,19 @@ class _ManageEventsView extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Manage events'),
-          actions: const <Widget>[LogoutButton()],
+          actions: <Widget>[
+            IconButton(
+              key: const ValueKey<String>('manage-open-profile'),
+              tooltip: 'My profile',
+              icon: const Icon(Icons.person_outline),
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => VendorProfileScreen(vendor: vendor),
+                ),
+              ),
+            ),
+            const LogoutButton(),
+          ],
           bottom: const TabBar(
             tabs: <Widget>[
               Tab(text: 'Active'),
@@ -367,11 +381,35 @@ class _EventTile extends StatelessWidget {
         allowedEventTransitions(event.status);
     return ListTile(
       key: ValueKey<String>('manage-event-${event.eventId}'),
+      isThreeLine: event.approvalStatus != ApprovalStatus.approved,
       leading: const Icon(Icons.event_outlined),
       title: Text(event.title),
-      subtitle: Text(
-        'Status: ${displayStatus.wireName} • Slots: ${event.slots} • '
-        '₹${event.payPerHead.formatted}',
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Status: ${displayStatus.wireName} • Slots: ${event.slots} • '
+            '₹${event.payPerHead.formatted}',
+          ),
+          if (event.approvalStatus == ApprovalStatus.pending)
+            Text(
+              'Awaiting admin approval — not visible to students yet',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.orange.shade800,
+              ),
+            )
+          else if (event.approvalStatus == ApprovalStatus.rejected)
+            Text(
+              'Rejected by admin — not published',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.red.shade700,
+              ),
+            ),
+        ],
       ),
       onTap: () => _openApplicants(context),
       trailing: Row(

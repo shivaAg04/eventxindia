@@ -17,8 +17,11 @@ import 'features/applications/domain/usecases/watch_student_applications.dart';
 import 'features/attendance/domain/repositories/attendance_repository.dart';
 import 'features/attendance/domain/usecases/watch_event_attendance.dart';
 import 'features/events/domain/usecases/get_event.dart';
+import 'features/events/domain/usecases/set_event_approval.dart';
 import 'features/events/domain/usecases/watch_vendor_events.dart';
+import 'core/value_objects/approval_status.dart';
 import 'core/value_objects/rating.dart';
+import 'features/config/presentation/bloc/platform_config_cubit.dart';
 import 'features/ratings/domain/usecases/rate_student.dart';
 import 'features/ratings/domain/usecases/watch_event_ratings.dart';
 import 'features/ratings/domain/usecases/watch_student_ratings.dart';
@@ -174,6 +177,14 @@ class _RoutedAppState extends State<_RoutedApp> {
         vendorId: vendorId,
         stars: stars,
       ),
+      createPlatformConfigCubit: () => getIt<PlatformConfigCubit>(),
+      setEventApproval: (String eventId, ApprovalStatus status) async {
+        final result = await getIt<SetEventApproval>()(
+          eventId: eventId,
+          status: status,
+        );
+        return result.isOk;
+      },
     );
     _tokenRegistrar = DeviceTokenRegistrar(
       adminRepository: getIt<AdminRepository>(),

@@ -1,5 +1,6 @@
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../core/value_objects/approval_status.dart';
 import '../../../../core/value_objects/event_status.dart';
 import '../entities/event.dart';
 
@@ -30,8 +31,10 @@ abstract class EventRepository {
   /// Returns the stored event on success or a [Failure] on error.
   Future<Result<Event, Failure>> create(Event event);
 
-  /// Streams every event currently in [EventStatus.active], independent of
-  /// remaining slots, for student discovery (R8.1).
+  /// Streams every **published** event currently in [EventStatus.active],
+  /// independent of remaining slots, for student discovery (R8.1). Events still
+  /// awaiting (or denied) admin approval are excluded — only
+  /// [ApprovalStatus.approved] events are emitted.
   Stream<List<Event>> watchActive();
 
   /// Streams the events owned by the vendor identified by [vendorId] for the
@@ -64,5 +67,14 @@ abstract class EventRepository {
   Future<Result<Event, Failure>> setApprovedCount(
     String eventId,
     int approvedCount,
+  );
+
+  /// Sets the admin moderation [status] on the event identified by [eventId],
+  /// returning the updated event. This is the admin-only publish gate: moving to
+  /// [ApprovalStatus.approved] publishes the event to students; moving to
+  /// [ApprovalStatus.rejected] keeps it hidden.
+  Future<Result<Event, Failure>> setApprovalStatus(
+    String eventId,
+    ApprovalStatus status,
   );
 }

@@ -26,6 +26,7 @@ class Application extends Equatable {
     this.eventTitle,
     this.eventLocation,
     this.eventPayMinorUnits,
+    this.eventCommissionPercent,
     this.eventDate,
   });
 
@@ -50,6 +51,7 @@ class Application extends Equatable {
     String? eventTitle,
     String? eventLocation,
     int? eventPayMinorUnits,
+    int? eventCommissionPercent,
     DateTime? eventDate,
   }) {
     return Application(
@@ -65,6 +67,7 @@ class Application extends Equatable {
       eventTitle: eventTitle,
       eventLocation: eventLocation,
       eventPayMinorUnits: eventPayMinorUnits,
+      eventCommissionPercent: eventCommissionPercent,
       eventDate: eventDate,
     );
   }
@@ -100,6 +103,12 @@ class Application extends Equatable {
   final String? eventTitle;
   final String? eventLocation;
   final int? eventPayMinorUnits;
+
+  /// The event's platform commission percentage (`0..100`) snapshotted at apply
+  /// time, so the student's wallet nets each credit at the rate in force when
+  /// they were engaged — immune to later changes of the platform-wide rate.
+  /// `null` on records created before this snapshot was introduced.
+  final int? eventCommissionPercent;
   final DateTime? eventDate;
 
   /// When the application was created.
@@ -125,6 +134,7 @@ class Application extends Equatable {
     String? eventTitle,
     String? eventLocation,
     int? eventPayMinorUnits,
+    int? eventCommissionPercent,
     DateTime? eventDate,
   }) {
     return Application(
@@ -140,6 +150,8 @@ class Application extends Equatable {
       eventTitle: eventTitle ?? this.eventTitle,
       eventLocation: eventLocation ?? this.eventLocation,
       eventPayMinorUnits: eventPayMinorUnits ?? this.eventPayMinorUnits,
+      eventCommissionPercent:
+          eventCommissionPercent ?? this.eventCommissionPercent,
       eventDate: eventDate ?? this.eventDate,
     );
   }
@@ -158,6 +170,7 @@ class Application extends Equatable {
         eventTitle,
         eventLocation,
         eventPayMinorUnits,
+        eventCommissionPercent,
         eventDate,
       ];
 

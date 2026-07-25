@@ -81,6 +81,20 @@ import '../../features/auth/domain/usecases/sign_out.dart' as _i568;
 import '../../features/auth/domain/usecases/verify_otp.dart' as _i975;
 import '../../features/auth/domain/usecases/watch_session.dart' as _i725;
 import '../../features/auth/presentation/bloc/auth_bloc.dart' as _i797;
+import '../../features/config/data/datasources/firestore_platform_config_data_source.dart'
+    as _i321;
+import '../../features/config/data/repositories/firestore_platform_config_repository_impl.dart'
+    as _i758;
+import '../../features/config/domain/repositories/platform_config_repository.dart'
+    as _i1064;
+import '../../features/config/domain/usecases/get_commission_percent.dart'
+    as _i705;
+import '../../features/config/domain/usecases/set_commission_percent.dart'
+    as _i374;
+import '../../features/config/domain/usecases/watch_commission_percent.dart'
+    as _i692;
+import '../../features/config/presentation/bloc/platform_config_cubit.dart'
+    as _i735;
 import '../../features/earnings/data/datasources/firestore_earnings_data_source.dart'
     as _i799;
 import '../../features/earnings/data/repositories/firestore_earnings_repository_impl.dart'
@@ -104,6 +118,7 @@ import '../../features/events/domain/usecases/create_event.dart' as _i539;
 import '../../features/events/domain/usecases/get_event.dart' as _i546;
 import '../../features/events/domain/usecases/search_active_events.dart'
     as _i776;
+import '../../features/events/domain/usecases/set_event_approval.dart' as _i597;
 import '../../features/events/domain/usecases/watch_active_events.dart'
     as _i1037;
 import '../../features/events/domain/usecases/watch_vendor_events.dart'
@@ -208,6 +223,11 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i141.FirestoreAttendanceDataSource>(
       () => _i141.FirestoreAttendanceDataSource(gh<_i974.FirebaseFirestore>()),
+    );
+    gh.factory<_i321.FirestorePlatformConfigDataSource>(
+      () => _i321.FirestorePlatformConfigDataSource(
+        gh<_i974.FirebaseFirestore>(),
+      ),
     );
     gh.factory<_i799.FirestoreEarningsDataSource>(
       () => _i799.FirestoreEarningsDataSource(gh<_i974.FirebaseFirestore>()),
@@ -331,6 +351,11 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i575.WatchAllWithdrawals>(
       () => useCaseModule.watchAllWithdrawals(gh<_i571.WalletRepository>()),
     );
+    gh.lazySingleton<_i1064.PlatformConfigRepository>(
+      () => _i758.FirestorePlatformConfigRepositoryImpl(
+        gh<_i321.FirestorePlatformConfigDataSource>(),
+      ),
+    );
     gh.lazySingleton<_i894.ProfileRepository>(
       () => _i652.FirestoreProfileRepositoryImpl(gh<_i974.FirebaseFirestore>()),
     );
@@ -372,11 +397,11 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i199.EventRepository>(),
       ),
     );
-    gh.lazySingleton<_i539.CreateEvent>(
-      () => useCaseModule.createEvent(gh<_i199.EventRepository>()),
-    );
     gh.lazySingleton<_i920.ChangeEventStatus>(
       () => useCaseModule.changeEventStatus(gh<_i199.EventRepository>()),
+    );
+    gh.lazySingleton<_i597.SetEventApproval>(
+      () => useCaseModule.setEventApproval(gh<_i199.EventRepository>()),
     );
     gh.lazySingleton<_i1019.WatchVendorEvents>(
       () => useCaseModule.watchVendorEvents(gh<_i199.EventRepository>()),
@@ -431,6 +456,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i794.GenerateAttendanceCode>(
       () => useCaseModule.generateAttendanceCode(gh<_i199.EventRepository>()),
     );
+    gh.lazySingleton<_i539.CreateEvent>(
+      () => useCaseModule.createEvent(
+        gh<_i199.EventRepository>(),
+        gh<_i1064.PlatformConfigRepository>(),
+      ),
+    );
     gh.lazySingleton<_i719.WatchEventApplications>(
       () => useCaseModule.watchEventApplications(
         gh<_i873.ApplicationRepository>(),
@@ -456,6 +487,21 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i199.EventRepository>(),
         gh<_i873.ApplicationRepository>(),
         gh<_i894.ProfileRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i705.GetCommissionPercent>(
+      () => useCaseModule.getCommissionPercent(
+        gh<_i1064.PlatformConfigRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i692.WatchCommissionPercent>(
+      () => useCaseModule.watchCommissionPercent(
+        gh<_i1064.PlatformConfigRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i374.SetCommissionPercent>(
+      () => useCaseModule.setCommissionPercent(
+        gh<_i1064.PlatformConfigRepository>(),
       ),
     );
     gh.factory<_i558.WalletCubit>(
@@ -493,6 +539,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i726.StudentApplicationsCubit>(
       () =>
           _i726.StudentApplicationsCubit(gh<_i566.WatchStudentApplications>()),
+    );
+    gh.factory<_i735.PlatformConfigCubit>(
+      () => _i735.PlatformConfigCubit(
+        gh<_i692.WatchCommissionPercent>(),
+        gh<_i374.SetCommissionPercent>(),
+      ),
     );
     gh.factory<_i785.EventDiscoveryBloc>(
       () => _i785.EventDiscoveryBloc(

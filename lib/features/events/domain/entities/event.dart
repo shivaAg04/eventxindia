@@ -1,7 +1,9 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/value_objects/approval_status.dart';
 import '../../../../core/value_objects/event_status.dart';
 import '../../../../core/value_objects/money.dart';
+import '../event_finance.dart';
 import 'event_location.dart';
 
 /// A gig posted by a vendor that students can discover and apply to.
@@ -35,6 +37,8 @@ class Event extends Equatable {
     this.startCode,
     this.endCode,
     this.approvedCount = 0,
+    this.platformCommissionPercent = 10,
+    this.approvalStatus = ApprovalStatus.approved,
   });
 
   /// The maximum number of characters allowed in a [title].
@@ -83,10 +87,40 @@ class Event extends Equatable {
   /// The current lifecycle status; [EventStatus.active] on creation (R7.6).
   final EventStatus status;
 
+  /// The admin moderation gate, **separate from the lifecycle [status]**. A new
+  /// event is created [ApprovalStatus.pending] and stays invisible to students
+  /// until an admin sets it to [ApprovalStatus.approved]; the admin may instead
+  /// [ApprovalStatus.rejected] it. Only approved events appear in student
+  /// discovery. Defaults to [ApprovalStatus.approved] so events created before
+  /// this gate existed remain published.
+  final ApprovalStatus approvalStatus;
+
+  /// Whether this event is published — admin-approved and therefore visible to
+  /// students. The single predicate used to gate student discovery.
+  bool get isPublished => approvalStatus == ApprovalStatus.approved;
+
   /// The number of applications a vendor has approved for this event. Starts at
   /// 0 and is incremented as the owning vendor approves applicants; it can never
   /// exceed [slots] (capacity is enforced when approving).
   final int approvedCount;
+
+  /// The platform commission percentage (the admin's cut) **snapshotted at
+  /// creation** from the current platform config. Because it lives on the event,
+  /// a later change to the platform-wide rate never affects this (or any past)
+  /// event. Defaults to 10 for events created before this field existed.
+  final int platformCommissionPercent;
+
+  /// What a student actually takes home per head: the pay-per-head net of the
+  /// event's snapshotted [platformCommissionPercent] (e.g. ₹100 at 10% ⇒ ₹90).
+  ///
+  /// This is the amount shown to students everywhere they view the pay — they
+  /// see the net, while vendors and the admin see the gross pay they fund. Uses
+  /// the canonical [splitCommission] rule so it always matches wallet credits.
+  Money get studentNetPayPerHead => Money.fromMinorUnits(
+        splitCommission(payPerHead.minorUnits, platformCommissionPercent)
+            .studentNetMinor,
+        requirePayPerHeadRange: false,
+      );
 
   /// The number of unfilled slots remaining (never negative).
   int get seatsRemaining =>
@@ -128,6 +162,8 @@ class Event extends Equatable {
     String? endCode,
     DateTime? updatedAt,
     int? approvedCount,
+    int? platformCommissionPercent,
+    ApprovalStatus? approvalStatus,
   }) {
     return Event(
       eventId: eventId,
@@ -146,6 +182,9 @@ class Event extends Equatable {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       approvedCount: approvedCount ?? this.approvedCount,
+      platformCommissionPercent:
+          platformCommissionPercent ?? this.platformCommissionPercent,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
     );
   }
 
@@ -167,6 +206,8 @@ class Event extends Equatable {
         createdAt,
         updatedAt,
         approvedCount,
+        platformCommissionPercent,
+        approvalStatus,
       ];
 
   @override

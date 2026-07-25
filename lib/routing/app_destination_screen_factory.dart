@@ -31,6 +31,7 @@ import '../features/applications/presentation/bloc/application_bloc.dart';
 import '../features/applications/presentation/bloc/student_applications_cubit.dart';
 import '../features/wallet/presentation/bloc/wallet_cubit.dart';
 import '../features/wallet/presentation/bloc/withdrawal_review_cubit.dart';
+import '../features/config/presentation/bloc/platform_config_cubit.dart';
 import '../features/ratings/domain/entities/rating_entry.dart';
 import '../core/error/failure.dart';
 import '../core/result/result.dart';
@@ -78,7 +79,12 @@ class AppDestinationScreenFactory {
     required this.watchStudentRatings,
     required this.watchEventRatings,
     required this.rateStudent,
+    required this.createPlatformConfigCubit,
+    required this.setEventApproval,
   });
+
+  /// Approves or rejects an event's admin publish gate (R6 moderation).
+  final SetEventApprovalFn setEventApproval;
 
   /// Resolves the signed-in user's id, or `null` when unavailable.
   final String? Function() uidProvider;
@@ -161,6 +167,9 @@ class AppDestinationScreenFactory {
     required String vendorId,
     required Rating stars,
   }) rateStudent;
+
+  /// Factory for the admin platform-settings [PlatformConfigCubit].
+  final PlatformConfigCubit Function() createPlatformConfigCubit;
 
   /// The [DestinationScreenFactory] the router calls to render [destination].
   Widget build(Destination destination) {
@@ -263,6 +272,8 @@ class AppDestinationScreenFactory {
           watchStudentAttendance: watchStudentAttendance,
           watchEventRatings: watchEventRatings,
           watchStudentRatings: watchStudentRatings,
+          createPlatformConfigCubit: createPlatformConfigCubit,
+          setEventApproval: setEventApproval,
         );
       case Destination.adminVendorApprovals:
       case Destination.adminStudents:
@@ -280,6 +291,8 @@ class AppDestinationScreenFactory {
           watchStudentAttendance: watchStudentAttendance,
           watchEventRatings: watchEventRatings,
           watchStudentRatings: watchStudentRatings,
+          createPlatformConfigCubit: createPlatformConfigCubit,
+          setEventApproval: setEventApproval,
         );
       case Destination.adminReports:
         return const _PendingScreen(title: 'Reports');
