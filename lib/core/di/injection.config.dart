@@ -35,6 +35,8 @@ import '../../features/admin/domain/usecases/list_students.dart' as _i24;
 import '../../features/admin/domain/usecases/list_vendors.dart' as _i792;
 import '../../features/admin/domain/usecases/reject_vendor.dart' as _i135;
 import '../../features/admin/presentation/bloc/admin_bloc.dart' as _i55;
+import '../../features/admin/presentation/bloc/admin_revenue_cubit.dart'
+    as _i982;
 import '../../features/applications/data/datasources/firestore_application_data_source.dart'
     as _i36;
 import '../../features/applications/data/repositories/firestore_application_repository_impl.dart'
@@ -131,6 +133,17 @@ import '../../features/profile/presentation/bloc/registration_bloc.dart'
     as _i671;
 import '../../features/profile/presentation/bloc/student_profile_cubit.dart'
     as _i30;
+import '../../features/ratings/data/datasources/firestore_rating_data_source.dart'
+    as _i648;
+import '../../features/ratings/data/repositories/firestore_rating_repository_impl.dart'
+    as _i63;
+import '../../features/ratings/domain/repositories/rating_repository.dart'
+    as _i1059;
+import '../../features/ratings/domain/usecases/rate_student.dart' as _i939;
+import '../../features/ratings/domain/usecases/watch_event_ratings.dart'
+    as _i569;
+import '../../features/ratings/domain/usecases/watch_student_ratings.dart'
+    as _i692;
 import '../../features/reports/data/datasources/firestore_report_data_source.dart'
     as _i621;
 import '../../features/reports/data/repositories/firestore_report_repository_impl.dart'
@@ -140,6 +153,21 @@ import '../../features/reports/domain/repositories/report_repository.dart'
 import '../../features/reports/domain/usecases/list_reports.dart' as _i517;
 import '../../features/reports/domain/usecases/submit_report.dart' as _i684;
 import '../../features/reports/presentation/bloc/report_bloc.dart' as _i652;
+import '../../features/wallet/data/datasources/firestore_withdrawal_data_source.dart'
+    as _i1034;
+import '../../features/wallet/data/repositories/firestore_wallet_repository_impl.dart'
+    as _i966;
+import '../../features/wallet/domain/repositories/wallet_repository.dart'
+    as _i571;
+import '../../features/wallet/domain/usecases/decide_withdrawal.dart' as _i470;
+import '../../features/wallet/domain/usecases/request_withdrawal.dart' as _i418;
+import '../../features/wallet/domain/usecases/watch_all_withdrawals.dart'
+    as _i575;
+import '../../features/wallet/domain/usecases/watch_student_withdrawals.dart'
+    as _i390;
+import '../../features/wallet/presentation/bloc/wallet_cubit.dart' as _i558;
+import '../../features/wallet/presentation/bloc/withdrawal_review_cubit.dart'
+    as _i922;
 import 'register_module.dart' as _i291;
 import 'use_case_module.dart' as _i1054;
 
@@ -187,8 +215,14 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i962.FirestoreEventDataSource>(
       () => _i962.FirestoreEventDataSource(gh<_i974.FirebaseFirestore>()),
     );
+    gh.factory<_i648.FirestoreRatingDataSource>(
+      () => _i648.FirestoreRatingDataSource(gh<_i974.FirebaseFirestore>()),
+    );
     gh.factory<_i621.FirestoreReportDataSource>(
       () => _i621.FirestoreReportDataSource(gh<_i974.FirebaseFirestore>()),
+    );
+    gh.factory<_i1034.FirestoreWithdrawalDataSource>(
+      () => _i1034.FirestoreWithdrawalDataSource(gh<_i974.FirebaseFirestore>()),
     );
     gh.lazySingleton<_i50.StorageRepository>(
       () => _i702.FirebaseStorageRepositoryImpl(gh<_i457.FirebaseStorage>()),
@@ -240,9 +274,25 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i137.ListReports>(
       () => useCaseModule.adminListReports(gh<_i583.AdminRepository>()),
     );
+    gh.lazySingleton<_i571.WalletRepository>(
+      () => _i966.FirestoreWalletRepositoryImpl(
+        gh<_i1034.FirestoreWithdrawalDataSource>(),
+      ),
+    );
     gh.lazySingleton<_i219.MetricsService>(
       () =>
           _i173.FirestoreMetricsService(gh<_i701.FirestoreMetricsDataSource>()),
+    );
+    gh.factory<_i982.AdminRevenueCubit>(
+      () => _i982.AdminRevenueCubit(
+        gh<_i583.AdminRepository>(),
+        gh<_i477.AttendanceRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i1059.RatingRepository>(
+      () => _i63.FirestoreRatingRepositoryImpl(
+        gh<_i648.FirestoreRatingDataSource>(),
+      ),
     );
     gh.lazySingleton<_i873.ApplicationRepository>(
       () => _i574.FirestoreApplicationRepositoryImpl(
@@ -259,6 +309,27 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i974.FirebaseFirestore>(),
         messaging: gh<_i892.FirebaseMessaging>(),
       ),
+    );
+    gh.lazySingleton<_i939.RateStudent>(
+      () => useCaseModule.rateStudent(gh<_i1059.RatingRepository>()),
+    );
+    gh.lazySingleton<_i692.WatchStudentRatings>(
+      () => useCaseModule.watchStudentRatings(gh<_i1059.RatingRepository>()),
+    );
+    gh.lazySingleton<_i569.WatchEventRatings>(
+      () => useCaseModule.watchEventRatings(gh<_i1059.RatingRepository>()),
+    );
+    gh.lazySingleton<_i418.RequestWithdrawal>(
+      () => useCaseModule.requestWithdrawal(gh<_i571.WalletRepository>()),
+    );
+    gh.lazySingleton<_i470.DecideWithdrawal>(
+      () => useCaseModule.decideWithdrawal(gh<_i571.WalletRepository>()),
+    );
+    gh.lazySingleton<_i390.WatchStudentWithdrawals>(
+      () => useCaseModule.watchStudentWithdrawals(gh<_i571.WalletRepository>()),
+    );
+    gh.lazySingleton<_i575.WatchAllWithdrawals>(
+      () => useCaseModule.watchAllWithdrawals(gh<_i571.WalletRepository>()),
     );
     gh.lazySingleton<_i894.ProfileRepository>(
       () => _i652.FirestoreProfileRepositoryImpl(gh<_i974.FirebaseFirestore>()),
@@ -343,6 +414,12 @@ extension GetItInjectableX on _i174.GetIt {
         storageRepository: gh<_i50.StorageRepository>(),
       ),
     );
+    gh.factory<_i922.WithdrawalReviewCubit>(
+      () => _i922.WithdrawalReviewCubit(
+        gh<_i575.WatchAllWithdrawals>(),
+        gh<_i470.DecideWithdrawal>(),
+      ),
+    );
     gh.factory<_i797.AuthBloc>(
       () => _i797.AuthBloc(
         gh<_i474.RequestOtp>(),
@@ -379,6 +456,14 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i199.EventRepository>(),
         gh<_i873.ApplicationRepository>(),
         gh<_i894.ProfileRepository>(),
+      ),
+    );
+    gh.factory<_i558.WalletCubit>(
+      () => _i558.WalletCubit(
+        gh<_i477.AttendanceRepository>(),
+        gh<_i566.WatchStudentApplications>(),
+        gh<_i390.WatchStudentWithdrawals>(),
+        gh<_i418.RequestWithdrawal>(),
       ),
     );
     gh.lazySingleton<_i176.GetEarnings>(

@@ -25,7 +25,25 @@
       "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell input tap 830 2210)",
       "Bash(echo \"pid $!\")",
       "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell input tap 540 1976)",
-      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell input tap 810 283)"
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell input tap 810 283)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell dumpsys activity)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell input tap 675 1976)",
+      "Bash(command -v firebase)",
+      "Bash(echo \"firebase CLI: $\\(command -v firebase || echo 'NOT FOUND'\\)\")",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell am force-stop com.eventxindia.eventxindia)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell monkey -p com.eventxindia.eventxindia -c android.intent.category.LAUNCHER 1)",
+      "Bash(firebase functions:list)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell input tap 540 861)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell input text 100)",
+      "Bash(/Users/adda247/Library/Android/sdk/platform-tools/adb -s emulator-5556 shell input tap 540 1352)",
+      "Bash(awk '{print $2, $11, $12}')",
+      "Bash(pkill -f \"flutter_tools\")",
+      "Bash(pkill -f \"frontend_server_aot\")",
+      "Bash(firebase firestore:delete --all-collections --force)",
+      "Bash(command -v gcloud)",
+      "Bash(gcloud auth *)",
+      "Bash(npm install *)",
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=/private/tmp/claude-501/-Users-adda247-development-personal-event-x/968d2b22-c364-4160-918c-df735b1ccc18/scratchpad/adc.json node seed_admin.js)"
     ]
   }
 }

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../auth/presentation/widgets/logout_button.dart';
+import '../../../ratings/domain/entities/rating_entry.dart';
+import '../../../ratings/domain/rating_stats.dart';
+import '../../../ratings/presentation/widgets/star_rating_bar.dart';
 import '../../domain/entities/student.dart';
 import '../bloc/student_profile_cubit.dart';
 
@@ -18,6 +21,7 @@ class StudentProfileScreen extends StatelessWidget {
   const StudentProfileScreen({
     required this.uid,
     required this.createCubit,
+    required this.ratingsStream,
     super.key,
   });
 
@@ -26,6 +30,10 @@ class StudentProfileScreen extends StatelessWidget {
 
   /// Factory for the screen's [StudentProfileCubit] (resolved from DI).
   final StudentProfileCubit Function() createCubit;
+
+  /// Live stream of the ratings this student has received, used to show their
+  /// overall average rating (R rating).
+  final Stream<List<RatingEntry>> ratingsStream;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +48,7 @@ class StudentProfileScreen extends StatelessWidget {
           builder: (BuildContext context, StudentProfileState state) {
             return switch (state) {
               StudentProfileLoaded(:final Student student) =>
-                _ProfileView(student: student),
+                _ProfileView(student: student, ratingsStream: ratingsStream),
               StudentProfileFailure(:final String message) => _ProfileMessage(
                   key: const ValueKey<String>('student-profile-error'),
                   icon: Icons.error_outline,
@@ -58,9 +66,10 @@ class StudentProfileScreen extends StatelessWidget {
 
 /// Renders the student's profile fields (R4.6).
 class _ProfileView extends StatelessWidget {
-  const _ProfileView({required this.student});
+  const _ProfileView({required this.student, required this.ratingsStream});
 
   final Student student;
+  final Stream<List<RatingEntry>> ratingsStream;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +87,9 @@ class _ProfileView extends StatelessWidget {
                 : null,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+        _AverageRatingCard(ratingsStream: ratingsStream),
+        const SizedBox(height: 8),
         _ProfileField(label: 'Full name', value: student.fullName),
         _ProfileField(label: 'Phone number', value: student.phone.e164),
         _ProfileField(label: 'Gender', value: student.gender.wireName),
@@ -97,6 +108,65 @@ class _ProfileView extends StatelessWidget {
     final DateTime local = date.toLocal();
     String two(int n) => n.toString().padLeft(2, '0');
     return '${local.year}-${two(local.month)}-${two(local.day)}';
+  }
+}
+
+/// A card showing the student's overall average rating (mean of all event
+/// ratings received), or a hint when they have none yet.
+class _AverageRatingCard extends StatelessWidget {
+  const _AverageRatingCard({required this.ratingsStream});
+
+  final Stream<List<RatingEntry>> ratingsStream;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: StreamBuilder<List<RatingEntry>>(
+          stream: ratingsStream,
+          builder: (
+            BuildContext context,
+            AsyncSnapshot<List<RatingEntry>> snapshot,
+          ) {
+            final List<RatingEntry> ratings =
+                snapshot.data ?? const <RatingEntry>[];
+            final double? average = averageStars(ratings);
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Average rating', style: theme.textTheme.labelMedium),
+                    const SizedBox(height: 6),
+                    if (average == null)
+                      Text(
+                        'No ratings yet',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      )
+                    else
+                      StarRatingLabel(
+                        stars: average,
+                        size: 20,
+                        count: ratings.length,
+                      ),
+                  ],
+                ),
+                Text(
+                  formatAverage(average),
+                  style: theme.textTheme.headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -130,14 +131,17 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                           controller: _phone,
                           enabled: !busy,
                           keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
+                          ],
                           decoration: InputDecoration(
-                            labelText: _role == UserRole.vendor
-                                ? 'Phone number (10 digits)'
-                                : 'Phone number (with country code)',
-                            hintText: _role == UserRole.vendor
-                                ? '9876543210'
-                                : '+919876543210',
+                            labelText: 'Mobile number',
+                            hintText: '9876543210',
+                            counterText: '',
                             prefixIcon: const Icon(Icons.phone_outlined),
+                            prefixText: '+91 ',
                             errorText: _phoneError(state),
                           ),
                         ),

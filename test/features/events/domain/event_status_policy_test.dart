@@ -107,4 +107,27 @@ void main() {
       expect(effectiveEventStatus(event, now), EventStatus.completed);
     });
   });
+
+  group('allowedEventTransitions', () {
+    test('active can only be closed', () {
+      expect(allowedEventTransitions(EventStatus.active),
+          <EventStatus>[EventStatus.closed]);
+    });
+
+    test('closed is terminal (no further status change)', () {
+      expect(allowedEventTransitions(EventStatus.closed),
+          const <EventStatus>[]);
+    });
+
+    test('completed is terminal', () {
+      expect(allowedEventTransitions(EventStatus.completed),
+          const <EventStatus>[]);
+    });
+
+    test('no transition ever leads back to active', () {
+      for (final EventStatus s in EventStatus.values) {
+        expect(allowedEventTransitions(s).contains(EventStatus.active), isFalse);
+      }
+    });
+  });
 }

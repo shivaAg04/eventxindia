@@ -27,42 +27,30 @@ class PhoneValidator {
   /// The form-field name reported in returned [FieldError]s.
   static const String fieldName = 'phone';
 
-  /// Validates [rawPhone] against the format required for [role].
+  /// India's country code; every login number is normalised to it.
+  static const String indiaCountryCode = '91';
+
+  /// Validates [rawPhone] for [role].
   ///
-  /// Returns the parsed [PhoneNumber] on success, or a [ValidationFailure] that
-  /// identifies the `phone` field on failure.
+  /// The app is India-only: every role logs in with exactly 10 digits, which
+  /// are normalised to the `+91` E.164 form. Anything other than 10 digits is
+  /// rejected. Returns the parsed [PhoneNumber] on success or a
+  /// [ValidationFailure] identifying the `phone` field on failure. [role] is
+  /// retained for API compatibility but no longer changes the accepted format.
   Result<PhoneNumber, Failure> call(String rawPhone, UserRole role) {
     final String trimmed = rawPhone.trim();
     if (trimmed.isEmpty) {
       return _invalid('Phone number is required.');
     }
-
-    switch (role) {
-      case UserRole.vendor:
-        // Exactly 10 numeric digits, no country code (R2.2).
-        if (!_nationalOnly.hasMatch(trimmed)) {
-          return _invalid('Phone number must be exactly 10 digits.');
-        }
-        return Result<PhoneNumber, Failure>.ok(PhoneNumber.national(trimmed));
-      case UserRole.student:
-      case UserRole.admin:
-        // Country code followed by a 10-digit national number (R1.5).
-        try {
-          final PhoneNumber phone = PhoneNumber.parse(trimmed);
-          if (!phone.hasCountryCode) {
-            return _invalid(
-              'Phone number must include a country code followed by a '
-              '10-digit number.',
-            );
-          }
-          return Result<PhoneNumber, Failure>.ok(phone);
-        } on FormatException {
-          return _invalid(
-            'Phone number must be a country code followed by a 10-digit '
-            'number.',
-          );
-        }
+    if (!_nationalOnly.hasMatch(trimmed)) {
+      return _invalid('Enter a valid 10-digit mobile number.');
     }
+    return Result<PhoneNumber, Failure>.ok(
+      PhoneNumber.withCountryCode(
+        countryCode: indiaCountryCode,
+        nationalNumber: trimmed,
+      ),
+    );
   }
 
   Result<PhoneNumber, Failure> _invalid(String message) {

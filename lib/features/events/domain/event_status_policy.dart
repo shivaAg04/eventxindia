@@ -37,3 +37,19 @@ EventStatus effectiveEventStatus(Event event, DateTime now) {
   }
   return event.status;
 }
+
+/// The statuses an event may transition *to* from its [current] status.
+///
+/// The only manual transition is **Active → Closed**. Once an event is
+/// **Closed** or **Completed** it is terminal — the vendor can no longer change
+/// its status (and it can never be reopened to Active). Used to gate the status
+/// control in the vendor portal.
+List<EventStatus> allowedEventTransitions(EventStatus current) {
+  switch (current) {
+    case EventStatus.active:
+      return const <EventStatus>[EventStatus.closed];
+    case EventStatus.closed:
+    case EventStatus.completed:
+      return const <EventStatus>[];
+  }
+}

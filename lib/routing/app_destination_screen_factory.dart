@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../features/admin/presentation/bloc/admin_bloc.dart';
+import '../features/admin/presentation/bloc/admin_revenue_cubit.dart';
+import '../features/admin/presentation/screens/admin_home_screen.dart';
 import '../features/admin/presentation/screens/admin_lists_screen.dart';
-import '../features/admin/presentation/screens/admin_metrics_screen.dart';
 import '../features/attendance/domain/entities/attendance_record.dart';
+import '../features/events/domain/entities/event.dart';
 import '../features/attendance/presentation/bloc/attendance_bloc.dart';
 import '../features/attendance/presentation/screens/attendance_history_screen.dart';
 import '../features/auth/presentation/screens/phone_entry_screen.dart';
@@ -27,8 +29,12 @@ import '../features/profile/presentation/screens/vendor_registration_screen.dart
 import '../features/applications/domain/entities/application.dart';
 import '../features/applications/presentation/bloc/application_bloc.dart';
 import '../features/applications/presentation/bloc/student_applications_cubit.dart';
+import '../features/wallet/presentation/bloc/wallet_cubit.dart';
+import '../features/wallet/presentation/bloc/withdrawal_review_cubit.dart';
+import '../features/ratings/domain/entities/rating_entry.dart';
 import '../core/error/failure.dart';
 import '../core/result/result.dart';
+import '../core/value_objects/rating.dart';
 import 'destination_screen_factory.dart';
 
 /// Builds the real feature screen for each [Destination] (R3.1).
@@ -49,6 +55,7 @@ import 'destination_screen_factory.dart';
 class AppDestinationScreenFactory {
   AppDestinationScreenFactory({
     required this.uidProvider,
+    required this.phoneProvider,
     required this.profileRepository,
     required this.createEventDiscoveryBloc,
     required this.createApplicationBloc,
@@ -59,12 +66,27 @@ class AppDestinationScreenFactory {
     required this.createEventManagementBloc,
     required this.watchEventAttendance,
     required this.watchEventApplications,
+    required this.watchVendorEvents,
+    required this.watchStudentApplications,
+    required this.watchStudentAttendance,
     required this.createAdminBloc,
+    required this.createAdminRevenueCubit,
+    required this.createWithdrawalReviewCubit,
+    required this.createWalletCubit,
     required this.createRegistrationBloc,
+    required this.getEvent,
+    required this.watchStudentRatings,
+    required this.watchEventRatings,
+    required this.rateStudent,
   });
 
   /// Resolves the signed-in user's id, or `null` when unavailable.
   final String? Function() uidProvider;
+
+  /// Resolves the signed-in user's verified phone (E.164, e.g. `+919876543210`),
+  /// or `null` when unavailable. Used to prefill registration so the user need
+  /// not re-enter the number they just logged in with.
+  final String? Function() phoneProvider;
 
   /// Loads vendor profiles for the vendor home (R5.2).
   final ProfileRepository profileRepository;
@@ -90,11 +112,55 @@ class AppDestinationScreenFactory {
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
 
+  /// Streams the events owned by a single vendor, backing the admin vendor
+  /// drill-down (R6).
+  final Stream<List<Event>> Function(String vendorId) watchVendorEvents;
+
+  /// Streams the applications made by a single student, backing the admin
+  /// student drill-down (R6).
+  final Stream<List<Application>> Function(String studentId)
+      watchStudentApplications;
+
+  /// Streams the attendance records of a single student, backing the check-in /
+  /// check-out detail on the admin student drill-down (R6).
+  final Stream<List<AttendanceRecord>> Function(String studentId)
+      watchStudentAttendance;
+
   final AdminBloc Function() createAdminBloc;
+
+  /// Factory for the admin revenue tab's [AdminRevenueCubit].
+  final AdminRevenueCubit Function() createAdminRevenueCubit;
+
+  /// Factory for the admin withdrawal-review tab's [WithdrawalReviewCubit].
+  final WithdrawalReviewCubit Function() createWithdrawalReviewCubit;
+
+  /// Factory for the student wallet tab's [WalletCubit].
+  final WalletCubit Function() createWalletCubit;
 
   /// Factory for the [RegistrationBloc] backing the student/vendor registration
   /// forms shown to a signed-in user who has no role yet (R1.5–R1.9, R3.4).
   final RegistrationBloc Function() createRegistrationBloc;
+
+  /// Fetches a single event by id, backing the wallet's event-credit tap →
+  /// event-detail navigation (R8.5, R11 wallet).
+  final Future<Result<Event, Failure>> Function(String eventId) getEvent;
+
+  /// Streams the ratings a single student has received (student profile
+  /// average + per-event, admin student drill-down) (R rating).
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
+
+  /// Streams the ratings recorded for a single event (vendor attendance +
+  /// admin event drill-down) (R rating).
+  final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
+
+  /// Submits a vendor's one-time rating of a student for an event (R rating).
+  final Future<Result<RatingEntry, Failure>> Function({
+    required String eventId,
+    required String studentId,
+    required String vendorId,
+    required Rating stars,
+  }) rateStudent;
 
   /// The [DestinationScreenFactory] the router calls to render [destination].
   Widget build(Destination destination) {
@@ -111,6 +177,7 @@ class AppDestinationScreenFactory {
         return _withUid(
           (String uid) => _RegistrationGate(
             uid: uid,
+            phone: phoneProvider(),
             createRegistrationBloc: createRegistrationBloc,
           ),
         );
@@ -125,6 +192,9 @@ class AppDestinationScreenFactory {
             createStudentApplicationsCubit: createStudentApplicationsCubit,
             createAttendanceBloc: createAttendanceBloc,
             createStudentProfileCubit: createStudentProfileCubit,
+            createWalletCubit: createWalletCubit,
+            getEvent: getEvent,
+            watchStudentRatings: watchStudentRatings,
           ),
         );
       case Destination.studentDiscovery:
@@ -149,6 +219,7 @@ class AppDestinationScreenFactory {
           (String uid) => StudentProfileScreen(
             uid: uid,
             createCubit: createStudentProfileCubit,
+            ratingsStream: watchStudentRatings(uid),
           ),
         );
       case Destination.studentReports:
@@ -164,6 +235,9 @@ class AppDestinationScreenFactory {
             createApplicationBloc: createApplicationBloc,
             watchEventAttendance: watchEventAttendance,
             watchEventApplications: watchEventApplications,
+            watchEventRatings: watchEventRatings,
+            watchStudentRatings: watchStudentRatings,
+            rateStudent: rateStudent,
           ),
         );
       case Destination.vendorApplicants:
@@ -177,12 +251,36 @@ class AppDestinationScreenFactory {
 
       // --- Admin ---
       case Destination.adminDashboard:
-        return AdminMetricsScreen(createBloc: createAdminBloc);
+        return AdminHomeScreen(
+          createBloc: createAdminBloc,
+          createAdminRevenueCubit: createAdminRevenueCubit,
+          createWithdrawalReviewCubit: createWithdrawalReviewCubit,
+          createWalletCubit: createWalletCubit,
+          watchEventAttendance: watchEventAttendance,
+          watchEventApplications: watchEventApplications,
+          watchVendorEvents: watchVendorEvents,
+          watchStudentApplications: watchStudentApplications,
+          watchStudentAttendance: watchStudentAttendance,
+          watchEventRatings: watchEventRatings,
+          watchStudentRatings: watchStudentRatings,
+        );
       case Destination.adminVendorApprovals:
       case Destination.adminStudents:
       case Destination.adminVendors:
       case Destination.adminEvents:
-        return AdminListsScreen(createBloc: createAdminBloc);
+        return AdminListsScreen(
+          createBloc: createAdminBloc,
+          createAdminRevenueCubit: createAdminRevenueCubit,
+          createWithdrawalReviewCubit: createWithdrawalReviewCubit,
+          createWalletCubit: createWalletCubit,
+          watchEventAttendance: watchEventAttendance,
+          watchEventApplications: watchEventApplications,
+          watchVendorEvents: watchVendorEvents,
+          watchStudentApplications: watchStudentApplications,
+          watchStudentAttendance: watchStudentAttendance,
+          watchEventRatings: watchEventRatings,
+          watchStudentRatings: watchStudentRatings,
+        );
       case Destination.adminReports:
         return const _PendingScreen(title: 'Reports');
     }
@@ -209,6 +307,9 @@ class _VendorEventsLoader extends StatelessWidget {
     required this.createApplicationBloc,
     required this.watchEventAttendance,
     required this.watchEventApplications,
+    required this.watchEventRatings,
+    required this.watchStudentRatings,
+    required this.rateStudent,
   });
 
   final String uid;
@@ -219,6 +320,15 @@ class _VendorEventsLoader extends StatelessWidget {
       watchEventAttendance;
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
+  final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
+  final Future<Result<RatingEntry, Failure>> Function({
+    required String eventId,
+    required String studentId,
+    required String vendorId,
+    required Rating stars,
+  }) rateStudent;
 
   @override
   Widget build(BuildContext context) {
@@ -244,6 +354,10 @@ class _VendorEventsLoader extends StatelessWidget {
             createApplicationBloc: createApplicationBloc,
             watchEventAttendance: watchEventAttendance,
             watchEventApplications: watchEventApplications,
+            getStudent: profileRepository.getStudent,
+            watchEventRatings: watchEventRatings,
+            watchStudentRatings: watchStudentRatings,
+            rateStudent: rateStudent,
           ),
           (_) => const _PendingScreen(title: 'Manage events'),
         );
@@ -264,10 +378,14 @@ class _VendorEventsLoader extends StatelessWidget {
 class _RegistrationGate extends StatefulWidget {
   const _RegistrationGate({
     required this.uid,
+    required this.phone,
     required this.createRegistrationBloc,
   });
 
   final String uid;
+
+  /// The signed-in user's verified phone (E.164), prefilled into the form.
+  final String? phone;
   final RegistrationBloc Function() createRegistrationBloc;
 
   @override
@@ -315,8 +433,8 @@ class _RegistrationGateState extends State<_RegistrationGate> {
     return BlocProvider<RegistrationBloc>(
       create: (_) => widget.createRegistrationBloc(),
       child: role == UserRole.student
-          ? StudentRegistrationScreen(uid: widget.uid)
-          : VendorRegistrationScreen(uid: widget.uid),
+          ? StudentRegistrationScreen(uid: widget.uid, phone: widget.phone)
+          : VendorRegistrationScreen(uid: widget.uid, phone: widget.phone),
     );
   }
 }

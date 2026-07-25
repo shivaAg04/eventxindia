@@ -97,10 +97,11 @@ service cloud.firestore {
 
     // ---------------------------------------------------------------------
     // students/{uid}  — owner may create/read/update own profile.
-    // Admin may read all (R6.4).
+    // Admin may read all (R6.4). An approved vendor may read student profiles
+    // so they can review an applicant's full detail (the UI hides the phone).
     // ---------------------------------------------------------------------
     match /students/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+      allow read: if isOwner(uid) || isAdmin() || requesterIsApprovedVendor();
       allow create, update: if isOwner(uid)
         && request.resource.data.uid == uid;
       allow delete: if false;
@@ -123,8 +124,10 @@ service cloud.firestore {
         && request.resource.data.approvalStatus == 'Pending';
 
       // Owner may edit their profile but can never change approvalStatus.
-      allow update: if isOwner(uid)
-        && unchanged('approvalStatus');
+      // An Admin may change approvalStatus (approve/reject) but not the
+      // vendor's identity (uid); role changes stay Admin-only (R6.1–R6.3).
+      allow update: if (isOwner(uid) && unchanged('approvalStatus'))
+        || (isAdmin() && unchanged('uid'));
 
       allow delete: if false;
     }
@@ -252,6 +255,32 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
+    // withdrawals/{withdrawalId}
+    //  - A student creates their own request; it must start `Pending` and carry
+    //    no decision. Read by the owning student or an Admin.
+    //  - Only an Admin decides (updates `status`/`decidedAt`); the immutable
+    //    identity/amount fields must not change. This is the sole path that can
+    //    move a request out of `Pending`, so a client can never self-approve.
+    // ---------------------------------------------------------------------
+    match /withdrawals/{withdrawalId} {
+      allow read: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid || isAdmin()
+      );
+
+      allow create: if isSignedIn()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status == 'Pending'
+        && !('decidedAt' in request.resource.data);
+
+      allow update: if isAdmin()
+        && unchanged('studentId')
+        && unchanged('amountMinorUnits')
+        && unchanged('createdAt');
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
     // reports/{reportId}
     //  - create by a Student or Vendor for their own submission, restricted to
     //    the categories permitted for their role.
@@ -307,6 +336,39 @@ service cloud.firestore {
     // ---------------------------------------------------------------------
     match /authThrottle/{phone} {
       allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // ratings/{eventId_studentId}
+    //  - A vendor rates a student for an event once the student's check-out is
+    //    complete. Ratings are one-time and immutable.
+    //  - create: only by the event's owning vendor (and only an Approved
+    //    vendor), with a composite id and matching eventId/studentId, a
+    //    vendorId equal to the author, and a whole-star score in 1..5.
+    //  - update/delete: never (one-time; locked after creation).
+    //  - read: the rated student, any approved vendor (so a vendor reviewing an
+    //    applicant can see the candidate's overall average rating — a query by
+    //    studentId spans events the vendor does not own), or an Admin.
+    // ---------------------------------------------------------------------
+    match /ratings/{ratingId} {
+      allow read: if isSignedIn() && (
+        resource == null
+        || resource.data.studentId == request.auth.uid
+        || requesterIsApprovedVendor()
+        || isAdmin()
+      );
+
+      allow create: if isSignedIn()
+        && requesterIsApprovedVendor()
+        && request.resource.data.vendorId == request.auth.uid
+        && eventOwner(request.resource.data.eventId) == request.auth.uid
+        && ratingId == request.resource.data.eventId + '_'
+            + request.resource.data.studentId
+        && request.resource.data.stars is int
+        && request.resource.data.stars >= 1
+        && request.resource.data.stars <= 5;
+
+      allow update, delete: if false;
     }
 
     // ---------------------------------------------------------------------

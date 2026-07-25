@@ -21,10 +21,13 @@ import '../bloc/registration_state.dart';
 /// The widget reads its [RegistrationBloc] from the surrounding [BlocProvider],
 /// so it never talks to a use case or repository directly.
 class VendorRegistrationScreen extends StatefulWidget {
-  const VendorRegistrationScreen({required this.uid, super.key});
+  const VendorRegistrationScreen({required this.uid, this.phone, super.key});
 
   /// The authenticated vendor's id (their profile id).
   final String uid;
+
+  /// The signed-in phone (E.164) to prefill and lock the phone field.
+  final String? phone;
 
   @override
   State<VendorRegistrationScreen> createState() =>
@@ -40,6 +43,21 @@ class _VendorRegistrationScreenState extends State<VendorRegistrationScreen> {
   final TextEditingController _aadhaarOrPan = TextEditingController();
   final TextEditingController _website = TextEditingController();
   final TextEditingController _socialLinks = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _phone.text = _nationalDigits(widget.phone);
+  }
+
+  /// The 10 national digits of an E.164 number (drops `+` and country code).
+  static String _nationalDigits(String? raw) {
+    if (raw == null) return '';
+    final String digits = raw.replaceAll(RegExp(r'\D'), '');
+    return digits.length > 10
+        ? digits.substring(digits.length - 10)
+        : digits;
+  }
 
   @override
   void dispose() {
@@ -148,12 +166,11 @@ class _VendorRegistrationScreenState extends State<VendorRegistrationScreen> {
                 ),
                 _field(
                   controller: _phone,
-                  label: 'Phone number (10 digits)',
+                  label: 'Phone number',
                   fieldKey: 'vendor-phone',
                   keyboardType: TextInputType.phone,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
+                  readOnly: true,
+                  prefixText: '+91 ',
                   errorText: _errorFor(state, 'phone'),
                   onChanged: () => _syncFields(context),
                 ),
@@ -224,6 +241,8 @@ class _VendorRegistrationScreenState extends State<VendorRegistrationScreen> {
     int maxLines = 1,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
+    bool readOnly = false,
+    String? prefixText,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -233,11 +252,14 @@ class _VendorRegistrationScreenState extends State<VendorRegistrationScreen> {
         maxLines: maxLines,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
+        readOnly: readOnly,
         onChanged: (_) => onChanged(),
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
           errorText: errorText,
+          prefixText: prefixText,
+          helperText: readOnly ? 'Verified at login' : null,
         ),
       ),
     );

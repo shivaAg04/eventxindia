@@ -26,12 +26,17 @@ import 'profile_photo_picker.dart';
 class StudentRegistrationScreen extends StatefulWidget {
   const StudentRegistrationScreen({
     required this.uid,
+    this.phone,
     this.photoPicker = const StubPhotoPicker(),
     super.key,
   });
 
   /// The authenticated student's id (their profile id).
   final String uid;
+
+  /// The signed-in phone (E.164) to prefill and lock the phone field, so the
+  /// user does not re-enter the number they just verified.
+  final String? phone;
 
   /// The picker used to choose a profile photo (R1.8).
   final ProfilePhotoPicker photoPicker;
@@ -49,6 +54,21 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
 
   Gender? _gender;
   DateTime? _dateOfBirth;
+
+  @override
+  void initState() {
+    super.initState();
+    _phone.text = _nationalDigits(widget.phone);
+  }
+
+  /// The 10 national digits of an E.164 number (drops `+` and country code).
+  static String _nationalDigits(String? raw) {
+    if (raw == null) return '';
+    final String digits = raw.replaceAll(RegExp(r'\D'), '');
+    return digits.length > 10
+        ? digits.substring(digits.length - 10)
+        : digits;
+  }
 
   @override
   void dispose() {
@@ -161,6 +181,8 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
                   label: 'Phone number',
                   fieldKey: 'student-phone',
                   keyboardType: TextInputType.phone,
+                  readOnly: true,
+                  prefixText: '+91 ',
                   errorText: _errorFor(state, 'phone'),
                   onChanged: () => _syncFields(context),
                 ),
@@ -313,6 +335,8 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
     String? errorText,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
+    bool readOnly = false,
+    String? prefixText,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -321,11 +345,14 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
         controller: controller,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
+        readOnly: readOnly,
         onChanged: (_) => onChanged(),
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
           errorText: errorText,
+          prefixText: prefixText,
+          helperText: readOnly ? 'Verified at login' : null,
         ),
       ),
     );

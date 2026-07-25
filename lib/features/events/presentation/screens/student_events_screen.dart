@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/failure.dart';
+import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/application_status.dart';
 import '../../../../core/value_objects/money.dart';
 import '../../../applications/domain/entities/application.dart';
@@ -9,7 +11,11 @@ import '../../../attendance/domain/entities/attendance_record.dart';
 import '../../../attendance/presentation/bloc/attendance_bloc.dart';
 import '../../../attendance/presentation/screens/check_in_screen.dart';
 import '../../../attendance/presentation/screens/check_out_screen.dart';
+import '../../../ratings/domain/entities/rating_entry.dart';
+import '../../../ratings/presentation/widgets/star_rating_bar.dart';
+import '../../domain/entities/event.dart';
 import '../../domain/event_status_policy.dart';
+import 'event_detail_screen.dart';
 
 /// The active/inactive classification a student can filter by, derived from the
 /// snapshot event date via [isDatePast].
@@ -30,6 +36,8 @@ class StudentEventsScreen extends StatefulWidget {
     required this.studentId,
     required this.createStudentApplicationsCubit,
     required this.createAttendanceBloc,
+    required this.getEvent,
+    required this.ratingsStream,
     super.key,
   });
 
@@ -43,6 +51,14 @@ class StudentEventsScreen extends StatefulWidget {
   /// check-in / check-out actions.
   final AttendanceBloc Function() createAttendanceBloc;
 
+  /// Fetches a single event by id so tapping a card can open its detail screen
+  /// (R8.5).
+  final Future<Result<Event, Failure>> Function(String eventId) getEvent;
+
+  /// Live stream of the ratings this student has received, so each event card
+  /// can show the rating the vendor gave for that event (R rating).
+  final Stream<List<RatingEntry>> ratingsStream;
+
   @override
   State<StudentEventsScreen> createState() => _StudentEventsScreenState();
 }
@@ -50,6 +66,14 @@ class StudentEventsScreen extends StatefulWidget {
 class _StudentEventsScreenState extends State<StudentEventsScreen> {
   ApplicationStatus? _status;
   _EventActivity _activity = _EventActivity.all;
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   bool _matches(Application application, DateTime now) {
     if (_status != null && application.status != _status) {
@@ -57,14 +81,20 @@ class _StudentEventsScreenState extends State<StudentEventsScreen> {
     }
     switch (_activity) {
       case _EventActivity.all:
-        return true;
+        break;
       case _EventActivity.active:
         final DateTime? date = application.eventDate;
-        return date == null || !isDatePast(date, now);
+        if (!(date == null || !isDatePast(date, now))) return false;
       case _EventActivity.inactive:
         final DateTime? date = application.eventDate;
-        return date != null && isDatePast(date, now);
+        if (!(date != null && isDatePast(date, now))) return false;
     }
+    if (_query.isNotEmpty) {
+      final String title =
+          (application.eventTitle ?? application.eventId).toLowerCase();
+      if (!title.contains(_query.toLowerCase())) return false;
+    }
+    return true;
   }
 
   @override
@@ -84,6 +114,29 @@ class _StudentEventsScreenState extends State<StudentEventsScreen> {
         appBar: AppBar(title: const Text('My events')),
         body: Column(
           children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                controller: _search,
+                onChanged: (String v) => setState(() => _query = v),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Search events by name',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _search.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
             _FilterBar(
               status: _status,
               activity: _activity,
@@ -116,6 +169,8 @@ class _StudentEventsScreenState extends State<StudentEventsScreen> {
                         applications: applications,
                         matches: _matches,
                         createAttendanceBloc: widget.createAttendanceBloc,
+                        getEvent: widget.getEvent,
+                        ratingsStream: widget.ratingsStream,
                       ),
                   };
                 },
@@ -134,11 +189,15 @@ class _EventsList extends StatelessWidget {
     required this.applications,
     required this.matches,
     required this.createAttendanceBloc,
+    required this.getEvent,
+    required this.ratingsStream,
   });
 
   final List<Application> applications;
   final bool Function(Application application, DateTime now) matches;
   final AttendanceBloc Function() createAttendanceBloc;
+  final Future<Result<Event, Failure>> Function(String eventId) getEvent;
+  final Stream<List<RatingEntry>> ratingsStream;
 
   @override
   Widget build(BuildContext context) {
@@ -160,16 +219,32 @@ class _EventsList extends StatelessWidget {
             text: 'No events match your filters.',
           );
         }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: visible.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (BuildContext context, int index) {
-            final Application application = visible[index];
-            return _EventCard(
-              application: application,
-              record: byEvent[application.eventId],
-              createAttendanceBloc: createAttendanceBloc,
+        return StreamBuilder<List<RatingEntry>>(
+          stream: ratingsStream,
+          builder: (
+            BuildContext context,
+            AsyncSnapshot<List<RatingEntry>> ratingsSnapshot,
+          ) {
+            final Map<String, RatingEntry> ratingByEvent =
+                <String, RatingEntry>{
+              for (final RatingEntry r
+                  in ratingsSnapshot.data ?? const <RatingEntry>[])
+                r.eventId: r,
+            };
+            return ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: visible.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (BuildContext context, int index) {
+                final Application application = visible[index];
+                return _EventCard(
+                  application: application,
+                  record: byEvent[application.eventId],
+                  createAttendanceBloc: createAttendanceBloc,
+                  getEvent: getEvent,
+                  rating: ratingByEvent[application.eventId],
+                );
+              },
             );
           },
         );
@@ -185,15 +260,39 @@ class _EventCard extends StatelessWidget {
     required this.application,
     required this.record,
     required this.createAttendanceBloc,
+    required this.getEvent,
+    required this.rating,
   });
 
   final Application application;
   final AttendanceRecord? record;
   final AttendanceBloc Function() createAttendanceBloc;
+  final Future<Result<Event, Failure>> Function(String eventId) getEvent;
+
+  /// The rating the vendor gave this student for this event, if any.
+  final RatingEntry? rating;
 
   bool get _approved => application.status == ApplicationStatus.approved;
   bool get _checkedIn => record?.checkInTime != null;
   bool get _checkedOut => record?.checkOutTime != null;
+
+  /// Fetches this card's event and opens its read-only detail screen, or
+  /// surfaces the failure as a snackbar.
+  Future<void> _openDetail(BuildContext context) async {
+    final NavigatorState navigator = Navigator.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final Result<Event, Failure> result = await getEvent(application.eventId);
+    result.fold<void>(
+      (Event event) => navigator.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => EventDetailScreen(event: event),
+        ),
+      ),
+      (Failure f) => messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(f.message))),
+    );
+  }
 
   void _open(BuildContext context, {required bool checkIn}) {
     Navigator.of(context).push<void>(
@@ -225,26 +324,31 @@ class _EventCard extends StatelessWidget {
     ];
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Icon(Icons.event_available_outlined, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    application.eventTitle ?? 'Event ${application.eventId}',
-                    style: theme.textTheme.titleMedium,
+      child: InkWell(
+        onTap: () => _openDetail(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Icon(Icons.event_available_outlined, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      application.eventTitle ?? 'Event ${application.eventId}',
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _StatusBadge(status: application.status),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  _StatusBadge(status: application.status),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, size: 18),
+                ],
+              ),
             if (detailBits.isNotEmpty) ...<Widget>[
               const SizedBox(height: 4),
               Padding(
@@ -252,6 +356,18 @@ class _EventCard extends StatelessWidget {
                 child: Text(
                   detailBits.join('  •  '),
                   style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ],
+            if (rating != null) ...<Widget>[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 30),
+                child: Row(
+                  children: <Widget>[
+                    Text('Your rating  ', style: theme.textTheme.bodySmall),
+                    StarRatingBar(stars: rating!.stars.stars.toDouble()),
+                  ],
                 ),
               ),
             ],
@@ -323,7 +439,8 @@ class _EventCard extends StatelessWidget {
                 ),
               ),
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );

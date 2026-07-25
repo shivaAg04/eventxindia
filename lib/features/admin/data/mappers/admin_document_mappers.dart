@@ -89,7 +89,13 @@ class AdminDocumentMappers {
         ),
       ),
       slots: (data['slots'] as num).toInt(),
-      payPerHead: Money.fromMajorUnits(data['payPerHead'] as num),
+      // `payPerHead` is persisted as integer minor units (paise) by the events
+      // EventDto; read it the same way here (reading it as major units inflated
+      // the amount 100×).
+      payPerHead: Money.fromMinorUnits(
+        (data['payPerHead'] as num).toInt(),
+        requirePayPerHeadRange: false,
+      ),
       status: EventStatusX.parse(data['status'] as String),
       startCode: data['startCode'] as String?,
       endCode: data['endCode'] as String?,

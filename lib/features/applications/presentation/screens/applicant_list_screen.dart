@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/failure.dart';
+import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/application_status.dart';
+import '../../../profile/domain/entities/student.dart';
+import '../../../ratings/domain/entities/rating_entry.dart';
 import '../../domain/entities/application.dart';
 import '../../domain/usecases/decide_application.dart';
 import '../bloc/application_bloc.dart';
 import '../bloc/application_event.dart';
 import '../bloc/application_state.dart';
+import 'applicant_detail_screen.dart';
 
 /// Vendor-facing applicant list for a single owned event (R5.3, R5.4, R5.5).
 ///
@@ -22,6 +27,8 @@ class ApplicantListScreen extends StatefulWidget {
   const ApplicantListScreen({
     required this.eventId,
     required this.vendorId,
+    required this.getStudent,
+    required this.watchStudentRatings,
     super.key,
   });
 
@@ -30,6 +37,14 @@ class ApplicantListScreen extends StatefulWidget {
 
   /// The id of the vendor viewing/deciding (resolved from the session).
   final String vendorId;
+
+  /// Fetches an applicant's full student profile for the detail view (R5.3).
+  final Future<Result<Student, Failure>> Function(String uid) getStudent;
+
+  /// Streams an applicant's received ratings, so the detail view can show the
+  /// candidate's overall average rating.
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
 
   @override
   State<ApplicantListScreen> createState() => _ApplicantListScreenState();
@@ -97,6 +112,8 @@ class _ApplicantListScreenState extends State<ApplicantListScreen> {
                       ),
                       application: state.applications[index],
                       vendorId: widget.vendorId,
+                      getStudent: widget.getStudent,
+                      watchStudentRatings: widget.watchStudentRatings,
                     );
                   },
                 ),
@@ -109,22 +126,29 @@ class _ApplicantListScreenState extends State<ApplicantListScreen> {
   }
 }
 
-/// A single applicant row showing the candidate's resolved [Student] profile
-/// (name, phone, city) and application status, with approve/reject actions
-/// enabled only while the application is Pending (R5.4, R5.5, R5.8).
+/// A single applicant row showing the candidate's basic profile (name, city)
+/// and application status, with approve/reject actions enabled only while the
+/// application is Pending (R5.4, R5.5, R5.8). Tapping the row opens the
+/// [ApplicantDetailScreen] with the basic detail.
 ///
-/// The student profile is loaded once via [loadStudent] when the row is first
-/// built and cached for the row's lifetime; while loading or if the profile
-/// cannot be read it falls back to the student id so the vendor can still act.
+/// The applicant's mobile number is deliberately **not** shown to the vendor,
+/// here or on the detail screen, to protect the student's contact detail.
+/// Details come from the application's profile snapshot; the row falls back to
+/// the student id when the name snapshot is absent so the vendor can still act.
 class _ApplicantTile extends StatelessWidget {
   const _ApplicantTile({
     required this.application,
     required this.vendorId,
+    required this.getStudent,
+    required this.watchStudentRatings,
     super.key,
   });
 
   final Application application;
   final String vendorId;
+  final Future<Result<Student, Failure>> Function(String uid) getStudent;
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
 
   @override
   Widget build(BuildContext context) {
@@ -132,22 +156,28 @@ class _ApplicantTile extends StatelessWidget {
     final bool isPending = status == ApplicationStatus.pending;
 
     // Prefer the profile snapshot stored on the application; fall back to the
-    // student id for records created before the snapshot existed.
+    // student id for records created before the snapshot existed. The phone is
+    // intentionally excluded — vendors never see an applicant's mobile number.
     final String? name = application.applicantName;
-    final List<String> contactBits = <String>[
-      if (application.applicantPhone != null) application.applicantPhone!,
-      if (application.applicantCity != null) application.applicantCity!,
-    ];
-    final bool hasDetails = name != null || contactBits.isNotEmpty;
+    final String? city = application.applicantCity;
 
     return ListTile(
-      isThreeLine: hasDetails && contactBits.isNotEmpty,
+      isThreeLine: city != null && city.isNotEmpty,
+      onTap: () => Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => ApplicantDetailScreen(
+            application: application,
+            getStudent: getStudent,
+            ratingsStream: watchStudentRatings(application.studentId),
+          ),
+        ),
+      ),
       leading: CircleAvatar(child: Text(_initial(name))),
       title: Text(name ?? application.studentId),
       subtitle: Text(
-        contactBits.isEmpty
+        city == null || city.isEmpty
             ? 'Status: ${status.wireName}'
-            : '${contactBits.join(' • ')}\nStatus: ${status.wireName}',
+            : '$city\nStatus: ${status.wireName}',
       ),
       trailing: isPending
           ? Row(

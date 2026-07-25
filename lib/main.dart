@@ -10,9 +10,18 @@ import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
 import 'features/admin/domain/repositories/admin_repository.dart';
 import 'features/admin/presentation/bloc/admin_bloc.dart';
+import 'features/admin/presentation/bloc/admin_revenue_cubit.dart';
 import 'features/applications/presentation/bloc/application_bloc.dart';
 import 'features/applications/domain/usecases/watch_event_applications.dart';
+import 'features/applications/domain/usecases/watch_student_applications.dart';
+import 'features/attendance/domain/repositories/attendance_repository.dart';
 import 'features/attendance/domain/usecases/watch_event_attendance.dart';
+import 'features/events/domain/usecases/get_event.dart';
+import 'features/events/domain/usecases/watch_vendor_events.dart';
+import 'core/value_objects/rating.dart';
+import 'features/ratings/domain/usecases/rate_student.dart';
+import 'features/ratings/domain/usecases/watch_event_ratings.dart';
+import 'features/ratings/domain/usecases/watch_student_ratings.dart';
 import 'features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'features/auth/domain/entities/session_state.dart' as session;
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -23,6 +32,8 @@ import 'features/profile/domain/repositories/profile_repository.dart';
 import 'features/profile/presentation/bloc/registration_bloc.dart';
 import 'features/profile/presentation/bloc/student_profile_cubit.dart';
 import 'features/applications/presentation/bloc/student_applications_cubit.dart';
+import 'features/wallet/presentation/bloc/wallet_cubit.dart';
+import 'features/wallet/presentation/bloc/withdrawal_review_cubit.dart';
 import 'routing/app_destination_screen_factory.dart';
 import 'routing/routing.dart';
 
@@ -122,6 +133,7 @@ class _RoutedAppState extends State<_RoutedApp> {
     super.initState();
     _factory = AppDestinationScreenFactory(
       uidProvider: () => FirebaseAuth.instance.currentUser?.uid,
+      phoneProvider: () => FirebaseAuth.instance.currentUser?.phoneNumber,
       profileRepository: getIt<ProfileRepository>(),
       createEventDiscoveryBloc: () => getIt<EventDiscoveryBloc>(),
       createApplicationBloc: () => getIt<ApplicationBloc>(),
@@ -134,8 +146,34 @@ class _RoutedAppState extends State<_RoutedApp> {
           getIt<WatchEventAttendance>()(eventId),
       watchEventApplications: (String eventId) =>
           getIt<WatchEventApplications>()(eventId: eventId),
+      watchVendorEvents: (String vendorId) =>
+          getIt<WatchVendorEvents>()(vendorId),
+      watchStudentApplications: (String studentId) =>
+          getIt<WatchStudentApplications>()(studentId: studentId),
+      watchStudentAttendance: (String studentId) =>
+          getIt<AttendanceRepository>().watchByStudent(studentId),
       createAdminBloc: () => getIt<AdminBloc>(),
+      createAdminRevenueCubit: () => getIt<AdminRevenueCubit>(),
+      createWithdrawalReviewCubit: () => getIt<WithdrawalReviewCubit>(),
+      createWalletCubit: () => getIt<WalletCubit>(),
       createRegistrationBloc: () => getIt<RegistrationBloc>(),
+      getEvent: (String eventId) => getIt<GetEvent>()(eventId),
+      watchStudentRatings: (String studentId) =>
+          getIt<WatchStudentRatings>()(studentId),
+      watchEventRatings: (String eventId) =>
+          getIt<WatchEventRatings>()(eventId),
+      rateStudent: ({
+        required String eventId,
+        required String studentId,
+        required String vendorId,
+        required Rating stars,
+      }) =>
+          getIt<RateStudent>()(
+        eventId: eventId,
+        studentId: studentId,
+        vendorId: vendorId,
+        stars: stars,
+      ),
     );
     _tokenRegistrar = DeviceTokenRegistrar(
       adminRepository: getIt<AdminRepository>(),

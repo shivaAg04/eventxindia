@@ -82,6 +82,11 @@ class FirestoreAttendanceRepositoryImpl implements AttendanceRepository {
     return _dataSource.watchByEvent(eventId).map(_toEntities);
   }
 
+  @override
+  Stream<List<AttendanceRecord>> watchAll() {
+    return _dataSource.watchAll().map(_toEntities);
+  }
+
   List<AttendanceRecord> _toEntities(List<AttendanceDto> dtos) =>
       dtos.map((AttendanceDto dto) => dto.toEntity()).toList(growable: false);
 }

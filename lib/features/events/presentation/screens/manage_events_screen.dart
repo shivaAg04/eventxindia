@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/failure.dart';
+import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/event_status.dart';
 import '../../../applications/domain/entities/application.dart';
 import '../../../applications/presentation/bloc/application_bloc.dart';
 import '../../../applications/presentation/screens/applicant_list_screen.dart';
 import '../../../applications/presentation/screens/vendor_attendance_screen.dart';
+import '../../../../core/value_objects/rating.dart';
 import '../../../attendance/domain/entities/attendance_record.dart';
 import '../../../auth/presentation/widgets/logout_button.dart';
+import '../../../profile/domain/entities/student.dart';
 import '../../../profile/domain/entities/vendor.dart';
+import '../../../ratings/domain/entities/rating_entry.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/event_status_policy.dart';
 import '../bloc/event_management_bloc.dart';
 import 'create_event_screen.dart';
+
+/// Submits a vendor's one-time rating of a student for an event.
+typedef RateStudentFn = Future<Result<RatingEntry, Failure>> Function({
+  required String eventId,
+  required String studentId,
+  required String vendorId,
+  required Rating stars,
+});
 
 /// Vendor-facing "Manage Events" screen listing the events the vendor owns
 /// (R5.2), split into an **Active** tab and a **Closed / Completed** tab, with
@@ -36,6 +49,10 @@ class ManageEventsScreen extends StatelessWidget {
     required this.createApplicationBloc,
     required this.watchEventAttendance,
     required this.watchEventApplications,
+    required this.getStudent,
+    required this.watchEventRatings,
+    required this.watchStudentRatings,
+    required this.rateStudent,
     super.key,
   });
 
@@ -61,6 +78,22 @@ class ManageEventsScreen extends StatelessWidget {
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
 
+  /// Fetches a single student's full profile by id, backing the applicant
+  /// detail view (R5.3, R5.4).
+  final Future<Result<Student, Failure>> Function(String uid) getStudent;
+
+  /// Streams the ratings recorded for an event, so the attendance roster can
+  /// show/lock already-rated students (R rating).
+  final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
+
+  /// Streams the ratings a student has received, so the applicant detail can
+  /// show the candidate's average rating (R rating).
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
+
+  /// Submits a one-time student rating from the attendance roster (R rating).
+  final RateStudentFn rateStudent;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EventManagementBloc>(
@@ -71,6 +104,10 @@ class ManageEventsScreen extends StatelessWidget {
         createApplicationBloc: createApplicationBloc,
         watchEventAttendance: watchEventAttendance,
         watchEventApplications: watchEventApplications,
+        getStudent: getStudent,
+        watchEventRatings: watchEventRatings,
+        watchStudentRatings: watchStudentRatings,
+        rateStudent: rateStudent,
       ),
     );
   }
@@ -82,6 +119,10 @@ class _ManageEventsView extends StatelessWidget {
     required this.createApplicationBloc,
     required this.watchEventAttendance,
     required this.watchEventApplications,
+    required this.getStudent,
+    required this.watchEventRatings,
+    required this.watchStudentRatings,
+    required this.rateStudent,
   });
 
   final Vendor vendor;
@@ -90,6 +131,11 @@ class _ManageEventsView extends StatelessWidget {
       watchEventAttendance;
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
+  final Future<Result<Student, Failure>> Function(String uid) getStudent;
+  final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
+  final RateStudentFn rateStudent;
 
   void _openCreate(BuildContext context) {
     final EventManagementBloc bloc = context.read<EventManagementBloc>();
@@ -157,6 +203,10 @@ class _ManageEventsView extends StatelessWidget {
                   createApplicationBloc: createApplicationBloc,
                   watchEventAttendance: watchEventAttendance,
                   watchEventApplications: watchEventApplications,
+                  getStudent: getStudent,
+                  watchEventRatings: watchEventRatings,
+                  watchStudentRatings: watchStudentRatings,
+                  rateStudent: rateStudent,
                   emptyMessage: 'You have no active events yet.',
                 ),
                 _EventList(
@@ -165,6 +215,10 @@ class _ManageEventsView extends StatelessWidget {
                   createApplicationBloc: createApplicationBloc,
                   watchEventAttendance: watchEventAttendance,
                   watchEventApplications: watchEventApplications,
+                  getStudent: getStudent,
+                  watchEventRatings: watchEventRatings,
+                  watchStudentRatings: watchStudentRatings,
+                  rateStudent: rateStudent,
                   emptyMessage: 'No closed or completed events yet.',
                 ),
               ],
@@ -184,6 +238,10 @@ class _EventList extends StatelessWidget {
     required this.createApplicationBloc,
     required this.watchEventAttendance,
     required this.watchEventApplications,
+    required this.getStudent,
+    required this.watchEventRatings,
+    required this.watchStudentRatings,
+    required this.rateStudent,
     required this.emptyMessage,
   });
 
@@ -194,6 +252,11 @@ class _EventList extends StatelessWidget {
       watchEventAttendance;
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
+  final Future<Result<Student, Failure>> Function(String uid) getStudent;
+  final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
+  final RateStudentFn rateStudent;
   final String emptyMessage;
 
   @override
@@ -210,6 +273,10 @@ class _EventList extends StatelessWidget {
         createApplicationBloc: createApplicationBloc,
         watchEventAttendance: watchEventAttendance,
         watchEventApplications: watchEventApplications,
+        getStudent: getStudent,
+        watchEventRatings: watchEventRatings,
+        watchStudentRatings: watchStudentRatings,
+        rateStudent: rateStudent,
       ),
     );
   }
@@ -227,6 +294,10 @@ class _EventTile extends StatelessWidget {
     required this.createApplicationBloc,
     required this.watchEventAttendance,
     required this.watchEventApplications,
+    required this.getStudent,
+    required this.watchEventRatings,
+    required this.watchStudentRatings,
+    required this.rateStudent,
   });
 
   final Event event;
@@ -236,6 +307,11 @@ class _EventTile extends StatelessWidget {
       watchEventAttendance;
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
+  final Future<Result<Student, Failure>> Function(String uid) getStudent;
+  final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
+  final RateStudentFn rateStudent;
 
   void _changeStatus(BuildContext context, EventStatus status) {
     context.read<EventManagementBloc>().add(
@@ -255,6 +331,8 @@ class _EventTile extends StatelessWidget {
           child: ApplicantListScreen(
             eventId: event.eventId,
             vendorId: vendorId,
+            getStudent: getStudent,
+            watchStudentRatings: watchStudentRatings,
           ),
         ),
       ),
@@ -271,6 +349,8 @@ class _EventTile extends StatelessWidget {
             vendorId: vendorId,
             attendanceStream: watchEventAttendance(event.eventId),
             enrolledStream: watchEventApplications(event.eventId),
+            ratingsStream: watchEventRatings(event.eventId),
+            rateStudent: rateStudent,
           ),
         ),
       ),
@@ -281,6 +361,10 @@ class _EventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final EventStatus displayStatus =
         effectiveEventStatus(event, DateTime.now());
+    // The lifecycle only moves forward (active → closed → completed); a
+    // completed event offers no status change.
+    final List<EventStatus> transitions =
+        allowedEventTransitions(event.status);
     return ListTile(
       key: ValueKey<String>('manage-event-${event.eventId}'),
       leading: const Icon(Icons.event_outlined),
@@ -299,19 +383,20 @@ class _EventTile extends StatelessWidget {
             icon: const Icon(Icons.how_to_reg_outlined),
             onPressed: () => _openAttendance(context),
           ),
-          PopupMenuButton<EventStatus>(
-            tooltip: 'Change status',
-            onSelected: (EventStatus status) => _changeStatus(context, status),
-            itemBuilder: (BuildContext context) =>
-                <PopupMenuEntry<EventStatus>>[
-              for (final EventStatus status in EventStatus.values)
-                if (status != event.status)
+          if (transitions.isNotEmpty)
+            PopupMenuButton<EventStatus>(
+              tooltip: 'Change status',
+              onSelected: (EventStatus status) =>
+                  _changeStatus(context, status),
+              itemBuilder: (BuildContext context) =>
+                  <PopupMenuEntry<EventStatus>>[
+                for (final EventStatus status in transitions)
                   PopupMenuItem<EventStatus>(
                     value: status,
                     child: Text('Mark ${status.wireName}'),
                   ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );

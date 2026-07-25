@@ -38,4 +38,8 @@ abstract class AttendanceRepository {
   /// Streams the attendance records recorded for the event identified by
   /// [eventId].
   Stream<List<AttendanceRecord>> watchByEvent(String eventId);
+
+  /// Streams every attendance record across all events/students, for the admin
+  /// revenue aggregation (R6). Restricted to admins at the security layer.
+  Stream<List<AttendanceRecord>> watchAll();
 }

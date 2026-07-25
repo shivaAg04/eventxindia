@@ -41,6 +41,15 @@ import '../../features/reports/domain/usecases/list_reports.dart';
 import '../../features/reports/domain/usecases/submit_report.dart';
 import '../../features/earnings/domain/repositories/earnings_repository.dart';
 import '../../features/earnings/domain/usecases/get_earnings.dart';
+import '../../features/wallet/domain/repositories/wallet_repository.dart';
+import '../../features/wallet/domain/usecases/decide_withdrawal.dart';
+import '../../features/wallet/domain/usecases/request_withdrawal.dart';
+import '../../features/wallet/domain/usecases/watch_all_withdrawals.dart';
+import '../../features/wallet/domain/usecases/watch_student_withdrawals.dart';
+import '../../features/ratings/domain/repositories/rating_repository.dart';
+import '../../features/ratings/domain/usecases/rate_student.dart';
+import '../../features/ratings/domain/usecases/watch_event_ratings.dart';
+import '../../features/ratings/domain/usecases/watch_student_ratings.dart';
 
 /// Composition-root bindings for the domain use cases.
 ///
@@ -184,6 +193,40 @@ abstract class UseCaseModule {
   @lazySingleton
   GetEarnings getEarnings(EarningsRepository earningsRepository) =>
       GetEarnings(earningsRepository: earningsRepository);
+
+  // --- Wallet: withdrawals (R11) -------------------------------------------
+
+  @lazySingleton
+  RequestWithdrawal requestWithdrawal(WalletRepository repository) =>
+      RequestWithdrawal(repository: repository, now: DateTime.now);
+
+  @lazySingleton
+  DecideWithdrawal decideWithdrawal(WalletRepository repository) =>
+      DecideWithdrawal(repository: repository, now: DateTime.now);
+
+  @lazySingleton
+  WatchStudentWithdrawals watchStudentWithdrawals(
+    WalletRepository repository,
+  ) =>
+      WatchStudentWithdrawals(repository: repository);
+
+  @lazySingleton
+  WatchAllWithdrawals watchAllWithdrawals(WalletRepository repository) =>
+      WatchAllWithdrawals(repository: repository);
+
+  // --- Ratings -------------------------------------------------------------
+
+  @lazySingleton
+  RateStudent rateStudent(RatingRepository repository) =>
+      RateStudent(repository: repository, now: DateTime.now);
+
+  @lazySingleton
+  WatchStudentRatings watchStudentRatings(RatingRepository repository) =>
+      WatchStudentRatings(repository: repository);
+
+  @lazySingleton
+  WatchEventRatings watchEventRatings(RatingRepository repository) =>
+      WatchEventRatings(repository: repository);
 
   // --- Reports (R12) -------------------------------------------------------
 

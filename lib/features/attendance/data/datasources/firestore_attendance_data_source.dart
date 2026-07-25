@@ -82,6 +82,11 @@ class FirestoreAttendanceDataSource extends FirestoreDataSource {
         .map(_mapSnapshots);
   }
 
+  /// Streams every attendance record (admin revenue aggregation).
+  Stream<List<AttendanceDto>> watchAll() {
+    return _collection.snapshots().map(_mapSnapshots);
+  }
+
   Future<AttendanceDto> _readById(String attendanceId) async {
     final DocumentSnapshot<Map<String, dynamic>> snapshot =
         await _collection.doc(attendanceId).get();

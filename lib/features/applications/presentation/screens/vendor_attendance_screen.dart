@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/failure.dart';
+import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/application_status.dart';
+import '../../../../core/value_objects/rating.dart';
 import '../../../attendance/domain/entities/attendance_record.dart';
 import '../../../events/domain/repositories/event_repository.dart';
+import '../../../ratings/domain/entities/rating_entry.dart';
+import '../../../ratings/presentation/widgets/rate_student_dialog.dart';
+import '../../../ratings/presentation/widgets/star_rating_bar.dart';
 import '../../domain/entities/application.dart';
 import '../bloc/application_bloc.dart';
 import '../bloc/application_event.dart';
 import '../bloc/application_state.dart';
+
+/// Opens the rating dialog for a student and reports the outcome.
+typedef RateAction = Future<void> Function(
+  BuildContext context,
+  String studentId,
+  String studentName,
+);
 
 /// Vendor-facing attendance management for a single owned event.
 ///
@@ -26,6 +39,8 @@ class VendorAttendanceScreen extends StatelessWidget {
     required this.vendorId,
     required this.attendanceStream,
     required this.enrolledStream,
+    required this.ratingsStream,
+    required this.rateStudent,
     super.key,
   });
 
@@ -41,6 +56,52 @@ class VendorAttendanceScreen extends StatelessWidget {
   /// Live stream of the event's applications; the approved ones are the
   /// enrolled students shown in both tabs (R5.3, R5.7).
   final Stream<List<Application>> enrolledStream;
+
+  /// Live stream of the ratings already recorded for this event, so already
+  /// rated students show their stars (and the Rate action is hidden — ratings
+  /// are one-time).
+  final Stream<List<RatingEntry>> ratingsStream;
+
+  /// Submits a one-time rating for a student on this event.
+  final Future<Result<RatingEntry, Failure>> Function({
+    required String eventId,
+    required String studentId,
+    required String vendorId,
+    required Rating stars,
+  }) rateStudent;
+
+  /// Opens the rating dialog for [studentId] and submits the chosen rating,
+  /// reporting the outcome as a snackbar. Only reached for students whose
+  /// check-out is complete and who are not yet rated.
+  Future<void> _rate(
+    BuildContext context,
+    String studentId,
+    String studentName,
+  ) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final Rating? stars = await RateStudentDialog.show(context, studentName);
+    if (stars == null) {
+      return;
+    }
+    final Result<RatingEntry, Failure> result = await rateStudent(
+      eventId: eventId,
+      studentId: studentId,
+      vendorId: vendorId,
+      stars: stars,
+    );
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            result.fold<String>(
+              (RatingEntry _) => 'Rating submitted.',
+              (Failure f) => f.message,
+            ),
+          ),
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +124,8 @@ class VendorAttendanceScreen extends StatelessWidget {
               child: _EnrolledRoster(
                 attendanceStream: attendanceStream,
                 enrolledStream: enrolledStream,
+                ratingsStream: ratingsStream,
+                onRate: _rate,
               ),
             ),
           ],
@@ -79,10 +142,14 @@ class _EnrolledRoster extends StatelessWidget {
   const _EnrolledRoster({
     required this.attendanceStream,
     required this.enrolledStream,
+    required this.ratingsStream,
+    required this.onRate,
   });
 
   final Stream<List<AttendanceRecord>> attendanceStream;
   final Stream<List<Application>> enrolledStream;
+  final Stream<List<RatingEntry>> ratingsStream;
+  final RateAction onRate;
 
   @override
   Widget build(BuildContext context) {
@@ -114,16 +181,42 @@ class _EnrolledRoster extends StatelessWidget {
                 <String, AttendanceRecord>{
               for (final AttendanceRecord r in records) r.studentId: r,
             };
-            final List<_RosterEntry> entries = enrolled
-                .map((Application a) =>
-                    _RosterEntry(application: a, record: byStudent[a.studentId]))
-                .toList(growable: false);
 
-            return TabBarView(
-              children: <Widget>[
-                _RosterTab(entries: entries, mode: _AttendanceMode.checkIn),
-                _RosterTab(entries: entries, mode: _AttendanceMode.checkOut),
-              ],
+            return StreamBuilder<List<RatingEntry>>(
+              stream: ratingsStream,
+              builder: (
+                BuildContext context,
+                AsyncSnapshot<List<RatingEntry>> ratingsSnapshot,
+              ) {
+                final Map<String, RatingEntry> ratingByStudent =
+                    <String, RatingEntry>{
+                  for (final RatingEntry r
+                      in ratingsSnapshot.data ?? const <RatingEntry>[])
+                    r.studentId: r,
+                };
+                final List<_RosterEntry> entries = enrolled
+                    .map((Application a) => _RosterEntry(
+                          application: a,
+                          record: byStudent[a.studentId],
+                          rating: ratingByStudent[a.studentId],
+                        ))
+                    .toList(growable: false);
+
+                return TabBarView(
+                  children: <Widget>[
+                    _RosterTab(
+                      entries: entries,
+                      mode: _AttendanceMode.checkIn,
+                      onRate: onRate,
+                    ),
+                    _RosterTab(
+                      entries: entries,
+                      mode: _AttendanceMode.checkOut,
+                      onRate: onRate,
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
@@ -140,10 +233,13 @@ enum _RosterFilter { all, done, pending }
 
 /// An enrolled student paired with their attendance record (if any).
 class _RosterEntry {
-  const _RosterEntry({required this.application, this.record});
+  const _RosterEntry({required this.application, this.record, this.rating});
 
   final Application application;
   final AttendanceRecord? record;
+
+  /// The rating this student has already received for the event, if any.
+  final RatingEntry? rating;
 
   /// Whether the student has completed this tab's action (checked in / out).
   bool isDone(_AttendanceMode mode) => switch (mode) {
@@ -161,10 +257,15 @@ class _RosterEntry {
 /// One tab's list of enrolled students, with an All / Done / Pending filter over
 /// the tab's action (check-in or check-out).
 class _RosterTab extends StatefulWidget {
-  const _RosterTab({required this.entries, required this.mode});
+  const _RosterTab({
+    required this.entries,
+    required this.mode,
+    required this.onRate,
+  });
 
   final List<_RosterEntry> entries;
   final _AttendanceMode mode;
+  final RateAction onRate;
 
   @override
   State<_RosterTab> createState() => _RosterTabState();
@@ -247,6 +348,7 @@ class _RosterTabState extends State<_RosterTab>
                     mode: widget.mode,
                     doneLabel: _doneLabel,
                     pendingLabel: _pendingLabel,
+                    onRate: widget.onRate,
                   ),
                 ),
         ),
@@ -262,12 +364,14 @@ class _RosterTile extends StatelessWidget {
     required this.mode,
     required this.doneLabel,
     required this.pendingLabel,
+    required this.onRate,
   });
 
   final _RosterEntry entry;
   final _AttendanceMode mode;
   final String doneLabel;
   final String pendingLabel;
+  final RateAction onRate;
 
   @override
   Widget build(BuildContext context) {
@@ -276,18 +380,43 @@ class _RosterTile extends StatelessWidget {
     final DateTime? time = entry.timeFor(mode);
     final ColorScheme colors = Theme.of(context).colorScheme;
     final Color color = done ? Colors.greenAccent : colors.onSurfaceVariant;
+    final String name = app.applicantName ?? app.studentId;
 
     return ListTile(
       key: ValueKey<String>('roster-${mode.name}-${app.studentId}'),
       leading: const Icon(Icons.person_outline),
-      title: Text(app.applicantName ?? app.studentId),
+      title: Text(name),
       subtitle: Text(
         done && time != null ? '$doneLabel: ${_formatTime(time)}' : pendingLabel,
       ),
-      trailing: Icon(
-        done ? Icons.check_circle : Icons.schedule_outlined,
-        color: color,
-      ),
+      trailing: _trailing(context, name, done, color),
+    );
+  }
+
+  /// The trailing widget: on the check-out tab a completed student shows either
+  /// their rating (once rated — locked) or a Rate button; otherwise the status
+  /// icon is shown.
+  Widget _trailing(
+    BuildContext context,
+    String name,
+    bool done,
+    Color color,
+  ) {
+    if (mode == _AttendanceMode.checkOut && done) {
+      final RatingEntry? rating = entry.rating;
+      if (rating != null) {
+        return StarRatingBar(stars: rating.stars.stars.toDouble());
+      }
+      return TextButton.icon(
+        key: ValueKey<String>('rate-${entry.application.studentId}'),
+        icon: const Icon(Icons.star_border, size: 18),
+        label: const Text('Rate'),
+        onPressed: () => onRate(context, entry.application.studentId, name),
+      );
+    }
+    return Icon(
+      done ? Icons.check_circle : Icons.schedule_outlined,
+      color: color,
     );
   }
 

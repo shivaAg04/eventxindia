@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/error/failure.dart';
+import '../../../../core/result/result.dart';
+import '../../../ratings/domain/entities/rating_entry.dart';
+import '../../domain/entities/event.dart';
 import '../../../applications/presentation/bloc/application_bloc.dart';
 import '../../../applications/presentation/bloc/student_applications_cubit.dart';
 import '../../../attendance/presentation/bloc/attendance_bloc.dart';
 import '../../../profile/presentation/bloc/student_profile_cubit.dart';
 import '../../../profile/presentation/screens/student_profile_screen.dart';
+import '../../../wallet/presentation/bloc/wallet_cubit.dart';
+import '../../../wallet/presentation/screens/wallet_screen.dart';
 import '../bloc/event_discovery_bloc.dart';
 import 'student_active_events_screen.dart';
 import 'student_events_screen.dart';
@@ -31,6 +37,9 @@ class StudentDashboardScreen extends StatefulWidget {
     required this.createStudentApplicationsCubit,
     required this.createAttendanceBloc,
     required this.createStudentProfileCubit,
+    required this.createWalletCubit,
+    required this.getEvent,
+    required this.watchStudentRatings,
     super.key,
   });
 
@@ -53,6 +62,18 @@ class StudentDashboardScreen extends StatefulWidget {
   /// Factory for the profile tab's [StudentProfileCubit].
   final StudentProfileCubit Function() createStudentProfileCubit;
 
+  /// Factory for the wallet tab's [WalletCubit].
+  final WalletCubit Function() createWalletCubit;
+
+  /// Fetches a single event by id so a wallet event credit can open the
+  /// event-detail screen (R8.5).
+  final Future<Result<Event, Failure>> Function(String eventId) getEvent;
+
+  /// Streams the ratings this student has received (profile average +
+  /// per-event on My events) (R rating).
+  final Stream<List<RatingEntry>> Function(String studentId)
+      watchStudentRatings;
+
   @override
   State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
 }
@@ -71,10 +92,18 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       studentId: widget.studentId,
       createStudentApplicationsCubit: widget.createStudentApplicationsCubit,
       createAttendanceBloc: widget.createAttendanceBloc,
+      getEvent: widget.getEvent,
+      ratingsStream: widget.watchStudentRatings(widget.studentId),
+    ),
+    WalletScreen(
+      studentId: widget.studentId,
+      createCubit: widget.createWalletCubit,
+      getEvent: widget.getEvent,
     ),
     StudentProfileScreen(
       uid: widget.studentId,
       createCubit: widget.createStudentProfileCubit,
+      ratingsStream: widget.watchStudentRatings(widget.studentId),
     ),
   ];
 
@@ -95,6 +124,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             icon: Icon(Icons.assignment_outlined),
             selectedIcon: Icon(Icons.assignment),
             label: 'My events',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: 'Wallet',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
