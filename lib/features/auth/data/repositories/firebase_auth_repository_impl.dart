@@ -51,6 +51,16 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
   final DateTime Function() _clock;
   final int _maxWriteAttempts;
 
+  /// Upper bound on any single throttle-ledger read/write. The `authThrottle`
+  /// ledger is best-effort (R1.4 lockout is a soft guard), but a Firestore write
+  /// does not complete while the device is **offline** — it applies to the local
+  /// cache immediately yet its Future only resolves once the backend
+  /// acknowledges. Awaiting it unbounded would hang the whole OTP flow (the OTP
+  /// screen would never appear even though the code was sent). Capping it here
+  /// keeps login working when Firestore is unreachable; the write still syncs
+  /// later.
+  static const Duration _throttleIoTimeout = Duration(seconds: 4);
+
   @override
   Future<Result<OtpSession, Failure>> requestOtp(PhoneNumber phone) async {
     final String key = phone.e164;
@@ -85,14 +95,13 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
     // Throttle/lockout state is trusted backend-owned (authThrottle is closed
     // to clients by Firestore rules), so a denied or failed write must not
     // block OTP delivery — consistent with the safe read in
-    // [_readThrottleSafe] and the best-effort [_persistThrottle].
-    await withRetry<void>(
-      _maxWriteAttempts,
-      () => _dataSource.writeThrottle(
-        existing.copyWith(
-          otpIssuedAt: now,
-          attemptsForCurrentOtp: 0,
-        ),
+    // [_readThrottleSafe] and the best-effort [_persistThrottle]. The write is
+    // time-capped because an offline Firestore write never resolves and would
+    // otherwise hang the OTP flow (OTP screen would never appear).
+    await _bestEffortThrottleWrite(
+      existing.copyWith(
+        otpIssuedAt: now,
+        attemptsForCurrentOtp: 0,
       ),
     );
 
@@ -191,9 +200,10 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
 
   Future<AuthThrottleDto> _readThrottleSafe(String key) async {
     try {
-      return await _dataSource.readThrottle(key);
+      return await _dataSource.readThrottle(key).timeout(_throttleIoTimeout);
     } catch (_) {
-      // A read failure should not block the auth flow; treat as a fresh record.
+      // A read failure/timeout (e.g. Firestore offline) should not block the
+      // auth flow; treat as a fresh record.
       return AuthThrottleDto(phone: key);
     }
   }
@@ -228,10 +238,25 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
       state: state,
       otpIssuedAt: otpIssuedAt,
     );
-    await withRetry<void>(
-      _maxWriteAttempts,
-      () => _dataSource.writeThrottle(dto),
-    );
+    await _bestEffortThrottleWrite(dto);
+  }
+
+  /// Writes the throttle ledger [dto] without ever blocking the auth flow.
+  ///
+  /// The write goes through [withRetry], but the whole thing is time-capped by
+  /// [_throttleIoTimeout]: an offline Firestore write applies locally yet never
+  /// resolves its Future, so an unbounded await would hang login. On
+  /// timeout/failure we simply move on — the ledger is best-effort and the local
+  /// write syncs once connectivity returns.
+  Future<void> _bestEffortThrottleWrite(AuthThrottleDto dto) async {
+    try {
+      await withRetry<void>(
+        _maxWriteAttempts,
+        () => _dataSource.writeThrottle(dto),
+      ).timeout(_throttleIoTimeout);
+    } catch (_) {
+      // Best-effort: ignore a slow/offline/denied throttle write.
+    }
   }
 
   Failure _blockedFailure(OtpAttemptState state) {

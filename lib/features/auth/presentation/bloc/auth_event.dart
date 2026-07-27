@@ -48,6 +48,21 @@ final class SessionWatchStarted extends AuthEvent {
   const SessionWatchStarted();
 }
 
+/// Signals that the signed-in user just completed registration for [role], so
+/// the bloc can move straight to [Authenticated] and the router can navigate to
+/// the role's home immediately — without waiting for the `users/{uid}` role
+/// write to round-trip back through the Firestore-backed session watcher (which
+/// can be slow or, on a flaky connection, not arrive at all).
+final class RoleRegistered extends AuthEvent {
+  const RoleRegistered(this.role);
+
+  /// The role the user just registered as.
+  final UserRole role;
+
+  @override
+  List<Object?> get props => <Object?>[role];
+}
+
 /// Signs the current user out and clears any in-flight OTP challenge.
 final class SignedOut extends AuthEvent {
   const SignedOut();

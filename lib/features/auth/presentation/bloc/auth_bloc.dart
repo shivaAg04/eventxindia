@@ -45,6 +45,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<OtpRequested>(_onOtpRequested);
     on<OtpSubmitted>(_onOtpSubmitted);
     on<SessionWatchStarted>(_onSessionWatchStarted);
+    on<RoleRegistered>(_onRoleRegistered);
     on<SignedOut>(_onSignedOut);
   }
 
@@ -133,6 +134,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         domain.Unauthenticated() => const AuthInitial(),
       },
     );
+  }
+
+  void _onRoleRegistered(RoleRegistered event, Emitter<AuthState> emit) {
+    // Registration persisted the role; drive navigation immediately instead of
+    // waiting for the Firestore session watcher to observe the users/{uid}
+    // write. The watcher will later emit the same Authenticated state
+    // (idempotent), so this only makes navigation prompt and connection-proof.
+    emit(Authenticated(event.role));
   }
 
   Future<void> _onSignedOut(SignedOut event, Emitter<AuthState> emit) async {

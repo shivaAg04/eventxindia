@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../auth/domain/entities/user_role.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../domain/entities/student.dart';
 import '../../domain/repositories/storage_repository.dart';
@@ -155,6 +158,10 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
               ..showSnackBar(
                 const SnackBar(content: Text('Profile created.')),
               );
+            // Navigate straight to the student home: the role is persisted, so
+            // drive the session now instead of waiting for the Firestore watcher
+            // to observe it (which may lag or, on a flaky link, never arrive).
+            context.read<AuthBloc>().add(const RoleRegistered(UserRole.student));
           } else if (state is RegistrationFailure) {
             messenger
               ..hideCurrentSnackBar()
