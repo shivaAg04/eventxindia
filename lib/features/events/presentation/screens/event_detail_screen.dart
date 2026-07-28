@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/value_objects/event_status.dart';
 import '../../../applications/presentation/bloc/application_bloc.dart';
 import '../../../applications/presentation/bloc/application_event.dart';
@@ -85,67 +86,126 @@ class EventDetailScreen extends StatelessWidget {
 
   Widget _body(BuildContext context) {
     final theme = Theme.of(context);
+    final bool full = event.isFull;
     return ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Text(
-            event.title,
-            key: const ValueKey<String>('detail-title'),
-            style: theme.textTheme.headlineSmall,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      children: <Widget>[
+        // Hero image slot — the events carry no image, so a branded banner.
+        Container(
+          height: 150,
+          decoration: BoxDecoration(
+            gradient: AppGradients.brand,
+            borderRadius: BorderRadius.circular(18),
           ),
+          child: const Center(
+            child: Icon(Icons.groups_rounded, color: Colors.white, size: 56),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                event.title,
+                key: const ValueKey<String>('detail-title'),
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              full ? 'Full' : '${event.seatsRemaining} Slots Left',
+              style: TextStyle(
+                color: full ? AppColors.danger : AppColors.success,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: <Widget>[
+            const Icon(Icons.place_outlined,
+                size: 16, color: AppColors.textSecondary),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                event.location.label,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: <Widget>[
+              _DetailRow(
+                icon: Icons.calendar_today_outlined,
+                label: 'Date',
+                value: _formatDate(event.date),
+              ),
+              _DetailRow(
+                icon: Icons.schedule_outlined,
+                label: 'Time',
+                value: '${_formatTime(event.startTime)} - '
+                    '${_formatTime(event.endTime)}',
+              ),
+              _DetailRow(
+                icon: Icons.payments_outlined,
+                label: 'You earn (per head)',
+                value: '₹${event.studentNetPayPerHead.formatted}',
+                highlight: true,
+              ),
+              _DetailRow(
+                icon: Icons.event_seat_outlined,
+                label: 'Seats',
+                value: full
+                    ? 'All ${event.slots} filled'
+                    : '${event.seatsRemaining} of ${event.slots}',
+                last: true,
+              ),
+            ],
+          ),
+        ),
+        if (event.description.trim().isNotEmpty) ...<Widget>[
+          const SizedBox(height: 20),
+          Text('About', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
-          _StatusChip(status: event.status),
-          const SizedBox(height: 16),
           Text(
             event.description,
             key: const ValueKey<String>('detail-description'),
             style: theme.textTheme.bodyMedium,
           ),
-          const Divider(height: 32),
-          _DetailRow(
-            icon: Icons.calendar_today_outlined,
-            label: 'Date',
-            value: _formatDate(event.date),
-          ),
-          _DetailRow(
-            icon: Icons.schedule_outlined,
-            label: 'Time',
-            value: '${_formatTime(event.startTime)} - '
-                '${_formatTime(event.endTime)}',
-          ),
-          _DetailRow(
-            icon: Icons.place_outlined,
-            label: 'Location',
-            value: event.location.label,
-          ),
-          _DetailRow(
-            icon: Icons.event_seat_outlined,
-            label: 'Seats',
-            value: event.isFull
-                ? 'Full — all ${event.slots} slots filled'
-                : '${event.seatsRemaining} of ${event.slots} available',
-          ),
-          _DetailRow(
-            icon: Icons.payments_outlined,
-            label: 'You earn (per head)',
-            value: '₹${event.studentNetPayPerHead.formatted}',
-          ),
         ],
-      );
+      ],
+    );
   }
 
-  /// Formats a [date] as `YYYY-MM-DD` without depending on locale data.
-  static String _formatDate(DateTime date) {
-    final String month = date.month.toString().padLeft(2, '0');
-    final String day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
-  }
+  static const List<String> _months = <String>[
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
 
-  /// Formats a [time] as `HH:MM` (24-hour) without depending on locale data.
+  /// Formats a [date] as e.g. `25 May 2024`.
+  static String _formatDate(DateTime date) =>
+      '${date.day} ${_months[date.month - 1]} ${date.year}';
+
+  /// Formats a [time] as 12-hour `10:00 AM`.
   static String _formatTime(DateTime time) {
-    final String hour = time.hour.toString().padLeft(2, '0');
-    final String minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    final int h = time.hour % 12 == 0 ? 12 : time.hour % 12;
+    final String m = time.minute.toString().padLeft(2, '0');
+    final String ap = time.hour < 12 ? 'AM' : 'PM';
+    return '$h:$m $ap';
   }
 }
 
@@ -237,7 +297,7 @@ class _ApplyBar extends StatelessWidget {
                     ? 'Applying…'
                     : applied
                         ? 'Applied'
-                        : 'Apply to join',
+                        : 'Apply Now',
               ),
             );
           },
@@ -247,56 +307,56 @@ class _ApplyBar extends StatelessWidget {
   }
 }
 
-/// A labelled icon row used for each scalar event field in the detail view.
+/// A labelled icon row used for each scalar event field in the detail view:
+/// a tinted icon, the label on the left, and the value on the right.
 class _DetailRow extends StatelessWidget {
   const _DetailRow({
     required this.icon,
     required this.label,
     required this.value,
+    this.highlight = false,
+    this.last = false,
   });
 
   final IconData icon;
   final String label;
   final String value;
 
+  /// Renders the value in the brand colour (used for the pay row).
+  final bool highlight;
+
+  /// Suppresses the bottom divider on the final row.
+  final bool last;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return Container(
+      decoration: last
+          ? null
+          : const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.border)),
+            ),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(icon, size: 20),
+          Icon(icon, size: 19, color: AppColors.textSecondary),
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(label, style: theme.textTheme.labelMedium),
-                const SizedBox(height: 2),
-                Text(value, style: theme.textTheme.bodyLarge),
-              ],
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: AppColors.textSecondary),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: highlight ? AppColors.primary : AppColors.textPrimary,
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-/// A small chip indicating the event's lifecycle [status].
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final EventStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      key: const ValueKey<String>('detail-status'),
-      label: Text(status.wireName),
-      visualDensity: VisualDensity.compact,
     );
   }
 }

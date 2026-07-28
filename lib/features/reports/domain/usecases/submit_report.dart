@@ -87,6 +87,7 @@ class SubmitReport {
         return SubmitterRole.student;
       case UserRole.vendor:
         return SubmitterRole.vendor;
+      case UserRole.staff:
       case UserRole.admin:
         return null;
     }

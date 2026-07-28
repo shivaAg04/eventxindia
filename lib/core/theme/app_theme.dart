@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// The EventXIndia design system — a single, dark, "AI-era" theme applied
-/// app-wide through [MaterialApp].
+/// The EventXIndia design system — a clean, **light** theme with a confident
+/// red brand accent, applied app-wide through [MaterialApp].
 ///
 /// All screens use stock Material widgets (Scaffold, AppBar, FilledButton,
 /// Card, InputDecoration, ListTile, Chip, …), so styling them centrally here
@@ -10,127 +10,161 @@ import 'package:flutter/services.dart';
 /// per-screen styling to a minimum and reach for these tokens instead, so the
 /// look stays consistent and is changed in one place.
 ///
-/// The palette is a deep, blue-tinted near-black with an electric
-/// periwinkle/violet/mint accent triad — a restrained, futuristic register
-/// rather than a neon one. Use [AppColors] for raw tokens, [AppTheme.dark] for
-/// the [ThemeData], and the [AppGradients]/[AppDecorations] helpers for the few
-/// surfaces (hero headers, glass cards) that want more than the base theme.
+/// The palette is a white/soft-grey canvas with a vivid red primary for
+/// actions and highlights, an emerald green for positive/credit states, and a
+/// warm amber for pending/warning. Use [AppColors] for raw tokens,
+/// [AppTheme.light] for the [ThemeData], and the [AppGradients]/[AppDecorations]
+/// helpers for the few surfaces (hero cards, wallet header) that want a filled
+/// brand look.
 abstract final class AppColors {
-  // ---- Backgrounds (darkest → lightest surface) -------------------------
-  /// App canvas — the darkest layer, behind everything.
-  static const Color background = Color(0xFF07080F);
+  // ---- Backgrounds (canvas → surfaces) ---------------------------------
+  /// App canvas — a soft off-white behind cards.
+  static const Color background = Color(0xFFF4F5F7);
 
-  /// Base card / sheet surface, one step above the canvas.
-  static const Color surface = Color(0xFF10131F);
+  /// Base card / sheet surface — white.
+  static const Color surface = Color(0xFFFFFFFF);
 
-  /// Elevated surface (raised cards, menus, dialogs).
-  static const Color surfaceElevated = Color(0xFF161A2A);
+  /// Elevated surface (raised cards, menus, dialogs) — also white; depth comes
+  /// from soft shadows rather than a lighter fill.
+  static const Color surfaceElevated = Color(0xFFFFFFFF);
 
-  /// Hairline borders and dividers — a low-contrast cool grey.
-  static const Color border = Color(0xFF252A3D);
+  /// A very light neutral fill for input fields and chips.
+  static const Color fieldFill = Color(0xFFF1F2F4);
 
-  // ---- Accent triad -----------------------------------------------------
-  /// Primary action colour — electric periwinkle blue.
-  static const Color primary = Color(0xFF7C9CFF);
+  /// Hairline borders and dividers — a barely-there cool grey.
+  static const Color border = Color(0xFFE7E8EC);
 
-  /// Secondary accent — violet, for highlights and gradients.
-  static const Color violet = Color(0xFFC58BFF);
+  // ---- Accents ---------------------------------------------------------
+  /// Primary action colour — the brand red (CTAs, wallet header, selected nav).
+  static const Color primary = Color(0xFFE63329);
 
-  /// Tertiary accent — mint/cyan glow, for success and "live" states.
-  static const Color mint = Color(0xFF4FE3C1);
+  /// A deeper red for gradients and pressed states.
+  static const Color primaryDark = Color(0xFFC42920);
 
-  /// Destructive / error — a warm coral that stays legible on dark.
-  static const Color danger = Color(0xFFFF6B85);
+  /// Positive / credit — emerald green (withdraw, "+₹" amounts, success).
+  static const Color success = Color(0xFF1EA362);
+
+  /// Playful secondary accent — indigo/violet, used for headers, the title
+  /// highlight, promo cards and the primary FAB (pairs with the brand red).
+  static const Color accent = Color(0xFF6C5CE7);
+
+  /// A soft lavender wash for header backgrounds and promo cards.
+  static const Color accentSoft = Color(0xFFEDEBFB);
+
+  /// Destructive / error — a slightly deeper red so it stays distinct from the
+  /// brand red on white.
+  static const Color danger = Color(0xFFD92D20);
 
   /// Warning / pending — amber.
-  static const Color amber = Color(0xFFFFC24B);
+  static const Color amber = Color(0xFFF59E0B);
+
+  // ---- Legacy accent aliases (kept so pre-retheme screens compile) ------
+  /// Was the violet accent; now maps to the brand primary on the light theme.
+  static const Color violet = primary;
+
+  /// Was the mint accent; now maps to the success green on the light theme.
+  static const Color mint = success;
 
   // ---- Text ------------------------------------------------------------
-  /// Primary text — near-white with a faint cool tint.
-  static const Color textPrimary = Color(0xFFEEF1FB);
+  /// Primary text — near-black.
+  static const Color textPrimary = Color(0xFF17181A);
 
-  /// Secondary / supporting text.
-  static const Color textSecondary = Color(0xFF9BA3C2);
+  /// Secondary / supporting text — medium grey.
+  static const Color textSecondary = Color(0xFF6B7280);
 
-  /// Muted text (captions, disabled hints).
-  static const Color textMuted = Color(0xFF646C8C);
+  /// Muted text (captions, disabled hints) — light grey.
+  static const Color textMuted = Color(0xFF9CA3AF);
 }
 
 /// Reusable gradients for hero areas and accent fills.
 abstract final class AppGradients {
-  /// The signature brand sweep — periwinkle → violet, for primary CTAs and
-  /// hero headers.
+  /// The signature brand sweep — red → deep red, for hero cards (e.g. the
+  /// wallet balance header) and prominent filled surfaces.
   static const LinearGradient brand = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: <Color>[Color(0xFF7C9CFF), Color(0xFFC58BFF)],
+    colors: <Color>[AppColors.primary, AppColors.primaryDark],
   );
 
-  /// The opaque app canvas — a subtle violet/blue glow in the top-left corner
-  /// fading into the near-black background. Painted once behind every screen
-  /// (scaffolds are transparent), giving the whole app shared depth.
-  static const RadialGradient canvas = RadialGradient(
-    center: Alignment(-0.8, -1.0),
-    radius: 1.6,
-    colors: <Color>[Color(0xFF161C38), AppColors.background],
-    stops: <double>[0.0, 0.75],
+  /// The app canvas — a soft, almost-flat light wash painted once behind every
+  /// screen (scaffolds are transparent), giving the whole app a consistent base.
+  static const LinearGradient canvas = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: <Color>[Color(0xFFFAFAFB), AppColors.background],
   );
 }
 
-/// Ready-made decorations for the handful of surfaces that want a glassy,
-/// bordered look on top of the base [CardTheme].
+/// Ready-made decorations for the handful of surfaces that want more than the
+/// base [CardTheme] — soft, floating white cards and the brand-filled hero.
 abstract final class AppDecorations {
-  /// A glassmorphic card: translucent elevated surface, hairline border, soft
-  /// shadow. Use for stat tiles and feature cards that should "float".
-  static BoxDecoration glassCard({BorderRadius? radius}) => BoxDecoration(
-        color: AppColors.surfaceElevated.withValues(alpha: 0.7),
+  /// A soft white card that floats on the canvas with a gentle shadow. Use for
+  /// stat tiles and feature cards that should stand off the background.
+  static BoxDecoration softCard({BorderRadius? radius}) => BoxDecoration(
+        color: AppColors.surface,
         borderRadius: radius ?? BorderRadius.circular(20),
         border: Border.all(color: AppColors.border),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x40000000),
-            blurRadius: 24,
+            color: Color(0x0F101828),
+            blurRadius: 20,
             offset: Offset(0, 8),
           ),
         ],
       );
+
+  /// The brand-red hero surface (e.g. the wallet "Total Balance" card).
+  static BoxDecoration brandHero({BorderRadius? radius}) => BoxDecoration(
+        gradient: AppGradients.brand,
+        borderRadius: radius ?? BorderRadius.circular(24),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x33E63329),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      );
+
+  /// Backwards-compatible alias for the old dark "glass" card so existing call
+  /// sites keep working; on the light theme it renders as a [softCard].
+  static BoxDecoration glassCard({BorderRadius? radius}) =>
+      softCard(radius: radius);
 }
 
-/// The app's [ThemeData]. The product is dark-only by design, so this is wired
-/// as both `theme` and `darkTheme` in [MaterialApp].
+/// The app's [ThemeData]. The product is light by design, so this is wired as
+/// both `theme` and `darkTheme` in [MaterialApp].
 abstract final class AppTheme {
-  static ThemeData get dark {
-    const ColorScheme scheme = ColorScheme.dark(
+  static ThemeData get light {
+    const ColorScheme scheme = ColorScheme.light(
       primary: AppColors.primary,
-      onPrimary: Color(0xFF071029),
-      primaryContainer: Color(0xFF24305A),
-      onPrimaryContainer: AppColors.textPrimary,
-      secondary: AppColors.violet,
-      onSecondary: Color(0xFF230A3A),
-      secondaryContainer: Color(0xFF3A2657),
-      onSecondaryContainer: AppColors.textPrimary,
-      tertiary: AppColors.mint,
-      onTertiary: Color(0xFF00271F),
+      onPrimary: Colors.white,
+      primaryContainer: Color(0xFFFFE1DE),
+      onPrimaryContainer: AppColors.primaryDark,
+      secondary: AppColors.success,
+      onSecondary: Colors.white,
+      secondaryContainer: Color(0xFFD7F3E4),
+      onSecondaryContainer: Color(0xFF0B5133),
+      tertiary: AppColors.amber,
+      onTertiary: Color(0xFF3A2600),
       surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
       onSurfaceVariant: AppColors.textSecondary,
-      surfaceContainerHighest: AppColors.surfaceElevated,
+      surfaceContainerHighest: AppColors.fieldFill,
       outline: AppColors.border,
       outlineVariant: AppColors.border,
       error: AppColors.danger,
-      onError: Color(0xFF2B0710),
+      onError: Colors.white,
     );
 
-    final TextTheme baseText = Typography.material2021()
-        .white
-        .apply(
+    final TextTheme baseText = Typography.material2021().black.apply(
           bodyColor: AppColors.textPrimary,
           displayColor: AppColors.textPrimary,
         );
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       colorScheme: scheme,
       // Transparent so the app-wide [AppGradients.canvas] painted in
       // MaterialApp.builder shows through every screen.
@@ -139,31 +173,33 @@ abstract final class AppTheme {
       splashFactory: InkSparkle.splashFactory,
       textTheme: _textTheme(baseText),
 
-      // -- App bar: flat, transparent, part of the canvas -----------------
+      // -- App bar: flat, light, centered title ---------------------------
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: false,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        centerTitle: true,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
-          fontSize: 20,
+          fontSize: 19,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.2,
         ),
+        iconTheme: IconThemeData(color: AppColors.textPrimary),
       ),
 
-      // -- Cards: rounded, hairline-bordered, no Material tint ------------
+      // -- Cards: white, soft-shadowed, rounded ---------------------------
       cardTheme: CardThemeData(
         color: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        shadowColor: const Color(0x14101828),
+        elevation: 6,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           side: const BorderSide(color: AppColors.border),
         ),
         clipBehavior: Clip.antiAlias,
@@ -173,8 +209,8 @@ abstract final class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
-          foregroundColor: const Color(0xFF071029),
-          disabledBackgroundColor: AppColors.surfaceElevated,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.fieldFill,
           disabledForegroundColor: AppColors.textMuted,
           minimumSize: const Size.fromHeight(54),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -191,7 +227,7 @@ abstract final class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
-          foregroundColor: const Color(0xFF071029),
+          foregroundColor: Colors.white,
           elevation: 0,
           minimumSize: const Size.fromHeight(54),
           shape: RoundedRectangleBorder(
@@ -206,9 +242,9 @@ abstract final class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.textPrimary,
+          foregroundColor: AppColors.primary,
           minimumSize: const Size.fromHeight(54),
-          side: const BorderSide(color: AppColors.border),
+          side: const BorderSide(color: AppColors.primary, width: 1.4),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -228,10 +264,10 @@ abstract final class AppTheme {
         ),
       ),
 
-      // -- Inputs: filled, rounded, glowing focus ------------------------
+      // -- Inputs: filled light grey, rounded, red focus ------------------
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceElevated,
+        fillColor: AppColors.fieldFill,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         hintStyle: const TextStyle(color: AppColors.textMuted),
@@ -263,9 +299,9 @@ abstract final class AppTheme {
 
       // -- Chips ----------------------------------------------------------
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.surfaceElevated,
-        selectedColor: AppColors.primary.withValues(alpha: 0.18),
-        disabledColor: AppColors.surface,
+        backgroundColor: AppColors.fieldFill,
+        selectedColor: AppColors.primary.withValues(alpha: 0.12),
+        disabledColor: AppColors.fieldFill,
         labelStyle: const TextStyle(
           color: AppColors.textSecondary,
           fontWeight: FontWeight.w600,
@@ -298,25 +334,24 @@ abstract final class AppTheme {
 
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.primary,
-        linearTrackColor: AppColors.surfaceElevated,
-        circularTrackColor: AppColors.surfaceElevated,
+        linearTrackColor: AppColors.fieldFill,
+        circularTrackColor: AppColors.fieldFill,
       ),
 
-      // -- Snackbars: floating, dark, rounded ----------------------------
+      // -- Snackbars: floating, dark pill, rounded ------------------------
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.surfaceElevated,
-        contentTextStyle: const TextStyle(color: AppColors.textPrimary),
-        actionTextColor: AppColors.primary,
-        elevation: 8,
+        backgroundColor: AppColors.textPrimary,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        actionTextColor: const Color(0xFFFF9E97),
+        elevation: 6,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
         ),
       ),
 
       dialogTheme: DialogThemeData(
-        backgroundColor: AppColors.surfaceElevated,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
@@ -338,11 +373,14 @@ abstract final class AppTheme {
         ),
       ),
 
+      // -- Bottom navigation: white bar, red selected, grey unselected ----
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: AppColors.primary.withValues(alpha: 0.18),
-        elevation: 0,
+        indicatorColor: AppColors.primary.withValues(alpha: 0.12),
+        elevation: 8,
+        shadowColor: const Color(0x14101828),
+        height: 64,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (Set<WidgetState> states) => TextStyle(
             fontSize: 12,
@@ -363,8 +401,8 @@ abstract final class AppTheme {
 
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,
-        foregroundColor: Color(0xFF071029),
-        elevation: 0,
+        foregroundColor: Colors.white,
+        elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(18)),
         ),

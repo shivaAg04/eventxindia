@@ -13,6 +13,10 @@ enum UserRole {
   /// A vendor who creates and manages events and decides applications.
   vendor,
 
+  /// A staff member acting on a vendor's events with scoped access (manage
+  /// applicants and/or attendance), linked to a parent vendor.
+  staff,
+
   /// An administrator who approves vendors and oversees the platform.
   admin,
 }

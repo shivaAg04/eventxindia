@@ -62,6 +62,12 @@ enum Destination {
   /// Report submission for vendors (R12.2).
   vendorReports(owner: UserRole.vendor, isHome: false),
 
+  // --- Staff destinations (vendor team) ---
+
+  /// The staff member's home: the scoped portal over their parent vendor's
+  /// events, gated to managing applicants and/or attendance by their role.
+  staffHome(owner: UserRole.staff, isHome: true),
+
   // --- Admin destinations (R6, R12) ---
 
   /// The admin's dashboard and default landing destination, including metrics

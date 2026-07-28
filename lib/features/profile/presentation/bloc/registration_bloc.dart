@@ -188,15 +188,15 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
       return Result<Student, Failure>.err(ValidationFailure(fieldErrors: errors));
     }
 
+    // Photo upload is best-effort: a photo is optional (R1.9), so if the upload
+    // fails (e.g. Firebase Storage not set up, or a flaky connection) we still
+    // complete registration without a photo rather than blocking the user. The
+    // student can add a photo later once Storage is available.
     String photoPath = '';
     if (input.photo != null) {
       final Result<String, Failure> upload =
           await _storageRepository.uploadProfilePhoto(uid: uid, photo: input.photo!);
-      final String? path = upload.valueOrNull;
-      if (path == null) {
-        return Result<Student, Failure>.err(upload.failureOrNull!);
-      }
-      photoPath = path;
+      photoPath = upload.valueOrNull ?? '';
     }
 
     return _profileRepository.createStudent(Student(

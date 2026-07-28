@@ -63,6 +63,26 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/events/$(eventId)).data.vendorId;
     }
 
+    // --- Staff (vendor team) helpers -------------------------------------
+    function isStaff() {
+      return userRole() == 'staff';
+    }
+
+    // The parent vendor a staff member acts for, and their assigned role,
+    // both read from the requester's users/{uid} document.
+    function staffVendorId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId;
+    }
+    function staffRoleName() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.staffRole;
+    }
+    function staffCanApplicants() {
+      return isStaff() && staffRoleName() in ['Manager', 'ApplicantReviewer'];
+    }
+    function staffCanAttendance() {
+      return isStaff() && staffRoleName() in ['Manager', 'AttendanceStaff'];
+    }
+
     // True when a field is unchanged between the existing doc and the incoming write.
     function unchanged(field) {
       return resource.data[field] == request.resource.data[field];
@@ -82,15 +102,34 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isOwner(uid) || isAdmin();
 
-      // Create: only for self; the role is whatever the user registers as
-      // (student | vendor). Admin accounts are provisioned by the trusted backend.
+      // Create: only for self. Role is either a self-registered student/vendor,
+      // OR 'staff' when a matching staff invite exists for this vendor + the
+      // requester's verified phone (staff self-provision on first login). Admin
+      // accounts are provisioned by the trusted backend.
       allow create: if isOwner(uid)
         && request.resource.data.uid == uid
-        && request.resource.data.role in ['student', 'vendor'];
+        && (
+          request.resource.data.role in ['student', 'vendor']
+          || (
+            request.resource.data.role == 'staff'
+            && exists(/databases/$(database)/documents/staff/$(
+                 request.resource.data.vendorId + '_'
+                 + request.auth.token.phone_number.replace('\\+', '')))
+          )
+        );
 
-      // Update: only self, and the role must not change.
+      // Update: only self. Role must not change, EXCEPT the same staff
+      // self-provision path (a merge-write on first login may land as update).
       allow update: if isOwner(uid)
-        && unchanged('role');
+        && (
+          unchanged('role')
+          || (
+            request.resource.data.role == 'staff'
+            && exists(/databases/$(database)/documents/staff/$(
+                 request.resource.data.vendorId + '_'
+                 + request.auth.token.phone_number.replace('\\+', '')))
+          )
+        );
 
       allow delete: if false;
     }
@@ -101,7 +140,8 @@ service cloud.firestore {
     // so they can review an applicant's full detail (the UI hides the phone).
     // ---------------------------------------------------------------------
     match /students/{uid} {
-      allow read: if isOwner(uid) || isAdmin() || requesterIsApprovedVendor();
+      allow read: if isOwner(uid) || isAdmin() || requesterIsApprovedVendor()
+        || staffCanApplicants();
       allow create, update: if isOwner(uid)
         && request.resource.data.uid == uid;
       allow delete: if false;
@@ -166,6 +206,15 @@ service cloud.firestore {
       allow update: if isAdmin()
         && unchanged('vendorId');
 
+      // Staff of the owning vendor may edit operational fields (approved count
+      // on applicant approval, attendance codes) but never the vendor id, the
+      // lifecycle status, or the moderation gate.
+      allow update: if (staffCanApplicants() || staffCanAttendance())
+        && resource.data.vendorId == staffVendorId()
+        && unchanged('vendorId')
+        && unchanged('status')
+        && unchanged('approvalStatus');
+
       allow delete: if isSignedIn()
         && resource.data.vendorId == request.auth.uid;
     }
@@ -191,6 +240,8 @@ service cloud.firestore {
         resource == null
         || resource.data.studentId == request.auth.uid
         || eventOwner(resource.data.eventId) == request.auth.uid
+        || (staffCanApplicants()
+            && eventOwner(resource.data.eventId) == staffVendorId())
         || isAdmin()
       );
 
@@ -200,9 +251,14 @@ service cloud.firestore {
         && request.resource.data.status == 'Pending'
         && eventStatus(request.resource.data.eventId) == 'Active';
 
-      // Vendor decision: owner of the event only, Pending -> Approved/Rejected.
+      // Decision: the owning vendor OR a staff member of that vendor with
+      // applicant permission. Pending -> Approved/Rejected.
       allow update: if isSignedIn()
-        && eventOwner(resource.data.eventId) == request.auth.uid
+        && (
+          eventOwner(resource.data.eventId) == request.auth.uid
+          || (staffCanApplicants()
+              && eventOwner(resource.data.eventId) == staffVendorId())
+        )
         && resource.data.status == 'Pending'
         && request.resource.data.status in ['Approved', 'Rejected']
         && unchanged('eventId')
@@ -230,6 +286,8 @@ service cloud.firestore {
         resource == null
         || resource.data.studentId == request.auth.uid
         || eventOwner(resource.data.eventId) == request.auth.uid
+        || (staffCanAttendance()
+            && eventOwner(resource.data.eventId) == staffVendorId())
         || isAdmin()
       );
 
@@ -367,13 +425,22 @@ service cloud.firestore {
         resource == null
         || resource.data.studentId == request.auth.uid
         || requesterIsApprovedVendor()
+        || (isStaff() && eventOwner(resource.data.eventId) == staffVendorId())
         || isAdmin()
       );
 
+      // The rating is created either by the owning approved vendor, or by a
+      // staff member (attendance permission) of that vendor. In both cases the
+      // stored vendorId is the owning vendor's uid.
       allow create: if isSignedIn()
-        && requesterIsApprovedVendor()
-        && request.resource.data.vendorId == request.auth.uid
-        && eventOwner(request.resource.data.eventId) == request.auth.uid
+        && (
+          (requesterIsApprovedVendor()
+              && request.resource.data.vendorId == request.auth.uid
+              && eventOwner(request.resource.data.eventId) == request.auth.uid)
+          || (staffCanAttendance()
+              && request.resource.data.vendorId == staffVendorId()
+              && eventOwner(request.resource.data.eventId) == staffVendorId())
+        )
         && ratingId == request.resource.data.eventId + '_'
             + request.resource.data.studentId
         && request.resource.data.stars is int
@@ -392,6 +459,41 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    // ---------------------------------------------------------------------
+    // staff/{staffId}  — a vendor's staff roster. Doc id is
+    // "{vendorId}_{phone}". The owning vendor manages their own staff; the
+    // invited person may read their own invite (matched by verified phone) so
+    // they can resolve their vendor/role at login; admin can read all.
+    // ---------------------------------------------------------------------
+    match /staff/{staffId} {
+      // `resource == null` permits the existence-check read the create
+      // transaction performs on a not-yet-created doc (reading a missing doc
+      // leaks nothing); otherwise scope reads to the owner, the invited person
+      // (by verified phone), or an admin.
+      allow read: if isSignedIn() && (
+             resource == null
+          || resource.data.vendorId == request.auth.uid
+          || resource.data.phone == request.auth.token.phone_number
+          || isAdmin()
+        );
+
+      // The owner may create a staff entry for themselves (their own roster).
+      // Approval is not required — an unapproved vendor may still set up staff;
+      // staff can't act until the vendor's events exist and are approved anyway.
+      allow create: if isSignedIn()
+        && request.resource.data.vendorId == request.auth.uid;
+
+      // The owning vendor may edit/remove their staff. The invited person may
+      // also update their own invite (matched by verified phone) to self-link
+      // their uid + active flag on first login.
+      allow update: if isSignedIn() && (
+             resource.data.vendorId == request.auth.uid
+          || resource.data.phone == request.auth.token.phone_number
+        );
+      allow delete: if isSignedIn()
+        && resource.data.vendorId == request.auth.uid;
     }
 
     // ---------------------------------------------------------------------

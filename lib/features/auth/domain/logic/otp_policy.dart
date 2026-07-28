@@ -161,6 +161,7 @@ OtpAttemptState reduceAttempt(
   // Limit reached on this attempt: apply the role-specific consequence.
   switch (role) {
     case UserRole.student:
+    case UserRole.staff:
     case UserRole.admin:
       return OtpAttemptState(
         consecutiveInvalid: nextCount,

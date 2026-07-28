@@ -32,6 +32,9 @@ import '../features/applications/presentation/bloc/student_applications_cubit.da
 import '../features/wallet/presentation/bloc/wallet_cubit.dart';
 import '../features/wallet/presentation/bloc/withdrawal_review_cubit.dart';
 import '../features/config/presentation/bloc/platform_config_cubit.dart';
+import '../features/staff/domain/entities/staff_member.dart';
+import '../features/staff/presentation/bloc/staff_cubit.dart';
+import '../features/staff/presentation/screens/staff_portal_screen.dart';
 import '../features/ratings/domain/entities/rating_entry.dart';
 import '../core/error/failure.dart';
 import '../core/result/result.dart';
@@ -81,10 +84,20 @@ class AppDestinationScreenFactory {
     required this.rateStudent,
     required this.createPlatformConfigCubit,
     required this.setEventApproval,
+    required this.createStaffCubit,
+    required this.findStaffByPhone,
   });
 
   /// Approves or rejects an event's admin publish gate (R6 moderation).
   final SetEventApprovalFn setEventApproval;
+
+  /// Factory for the vendor's staff-management [StaffCubit].
+  final StaffCubit Function() createStaffCubit;
+
+  /// Resolves a staff member's context (parent vendor + role) from their
+  /// verified phone, backing the scoped staff portal.
+  final Future<Result<StaffMember?, Failure>> Function(String phoneE164)
+      findStaffByPhone;
 
   /// Resolves the signed-in user's id, or `null` when unavailable.
   final String? Function() uidProvider;
@@ -247,6 +260,7 @@ class AppDestinationScreenFactory {
             watchEventRatings: watchEventRatings,
             watchStudentRatings: watchStudentRatings,
             rateStudent: rateStudent,
+            createStaffCubit: createStaffCubit,
           ),
         );
       case Destination.vendorApplicants:
@@ -257,6 +271,25 @@ class AppDestinationScreenFactory {
         return const _PendingScreen(title: 'Profile');
       case Destination.vendorReports:
         return const _PendingScreen(title: 'Report an issue');
+
+      // --- Staff (vendor team) ---
+      case Destination.staffHome:
+        final String? phone = phoneProvider();
+        if (phone == null) {
+          return const _PendingScreen(title: 'My work');
+        }
+        return StaffPortalScreen(
+          staffPhone: phone,
+          findStaffByPhone: findStaffByPhone,
+          watchVendorEvents: watchVendorEvents,
+          createApplicationBloc: createApplicationBloc,
+          getStudent: profileRepository.getStudent,
+          watchStudentRatings: watchStudentRatings,
+          watchEventApplications: watchEventApplications,
+          watchEventAttendance: watchEventAttendance,
+          watchEventRatings: watchEventRatings,
+          rateStudent: rateStudent,
+        );
 
       // --- Admin ---
       case Destination.adminDashboard:
@@ -323,10 +356,12 @@ class _VendorEventsLoader extends StatelessWidget {
     required this.watchEventRatings,
     required this.watchStudentRatings,
     required this.rateStudent,
+    required this.createStaffCubit,
   });
 
   final String uid;
   final ProfileRepository profileRepository;
+  final StaffCubit Function() createStaffCubit;
   final EventManagementBloc Function() createBloc;
   final ApplicationBloc Function() createApplicationBloc;
   final Stream<List<AttendanceRecord>> Function(String eventId)
@@ -371,6 +406,7 @@ class _VendorEventsLoader extends StatelessWidget {
             watchEventRatings: watchEventRatings,
             watchStudentRatings: watchStudentRatings,
             rateStudent: rateStudent,
+            createStaffCubit: createStaffCubit,
           ),
           (_) => const _PendingScreen(title: 'Manage events'),
         );

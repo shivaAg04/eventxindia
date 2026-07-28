@@ -15,6 +15,8 @@ import '../../../auth/presentation/widgets/logout_button.dart';
 import '../../../profile/domain/entities/student.dart';
 import '../../../profile/domain/entities/vendor.dart';
 import '../../../profile/presentation/screens/vendor_profile_screen.dart';
+import '../../../staff/presentation/bloc/staff_cubit.dart';
+import '../../../staff/presentation/screens/staff_screen.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/event_status_policy.dart';
@@ -55,12 +57,16 @@ class ManageEventsScreen extends StatelessWidget {
     required this.watchEventRatings,
     required this.watchStudentRatings,
     required this.rateStudent,
+    required this.createStaffCubit,
     super.key,
   });
 
   /// The vendor whose events are managed (resolved from the session). Its
   /// approval status gates creation (R5.1).
   final Vendor vendor;
+
+  /// Factory for the [StaffCubit] backing the staff-management screen.
+  final StaffCubit Function() createStaffCubit;
 
   /// Factory for the screen's [EventManagementBloc] (typically resolved from
   /// DI).
@@ -110,6 +116,7 @@ class ManageEventsScreen extends StatelessWidget {
         watchEventRatings: watchEventRatings,
         watchStudentRatings: watchStudentRatings,
         rateStudent: rateStudent,
+        createStaffCubit: createStaffCubit,
       ),
     );
   }
@@ -125,9 +132,11 @@ class _ManageEventsView extends StatelessWidget {
     required this.watchEventRatings,
     required this.watchStudentRatings,
     required this.rateStudent,
+    required this.createStaffCubit,
   });
 
   final Vendor vendor;
+  final StaffCubit Function() createStaffCubit;
   final ApplicationBloc Function() createApplicationBloc;
   final Stream<List<AttendanceRecord>> Function(String eventId)
       watchEventAttendance;
@@ -159,6 +168,19 @@ class _ManageEventsView extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Manage events'),
           actions: <Widget>[
+            IconButton(
+              key: const ValueKey<String>('manage-open-staff'),
+              tooltip: 'Staff',
+              icon: const Icon(Icons.groups_2_outlined),
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => StaffScreen(
+                    vendorId: vendor.uid,
+                    createCubit: createStaffCubit,
+                  ),
+                ),
+              ),
+            ),
             IconButton(
               key: const ValueKey<String>('manage-open-profile'),
               tooltip: 'My profile',

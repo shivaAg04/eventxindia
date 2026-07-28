@@ -47,7 +47,20 @@
       "Bash(firebase firestore:delete events --recursive --force)",
       "Bash(echo \"exit=$?\")",
       "Bash(sed -n '/Event eventFromDoc/,/^  }/p' lib/features/admin/data/mappers/admin_document_mappers.dart)",
-      "Bash(sed -n '/match \\\\/events\\\\//,/^    }/p' firestore.rules)"
+      "Bash(sed -n '/match \\\\/events\\\\//,/^    }/p' firestore.rules)",
+      "Bash(nslookup firestore.googleapis.com)",
+      "Bash(ping -c 2 firestore.googleapis.com)",
+      "Bash(sed -n '/String get e164/,/}/p' lib/core/value_objects/phone_number.dart)",
+      "Bash(sed -n '/factory PhoneNumber.withCountryCode/,/^  }/p' lib/core/value_objects/phone_number.dart)",
+      "Bash(curl -s -X POST https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=__TRACKED_VAR__ -H 'Content-Type: application/json' -d '{\"phoneNumber\":\"+918299539414\"}')",
+      "Bash(cd /Users/adda247/development/personal/event-x *)",
+      "Bash(awk 'NR>=320 && NR<=360 && \\(/class _/ || /required this\\\\./ || /final .* Function/ || /StreamBuilder|FutureBuilder/\\)' lib/routing/app_destination_screen_factory.dart)",
+      "Bash(awk 'NR<=355 && /^class /{last=NR\": \"$0} END{print last}' lib/routing/app_destination_screen_factory.dart)",
+      "Bash(sed -n '/roleFromString/,/^  }/p;/roleToString/,/^  }/p' lib/features/auth/data/mappers/auth_mapper.dart)",
+      "Bash(sed -n '/authUserFromFirebase/,/^  }/p' lib/features/auth/data/mappers/auth_mapper.dart)"
+    ],
+    "additionalDirectories": [
+      "/Users/adda247/development/personal/event-x/lib/features/profile/domain/entities"
     ]
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/dashboard_header.dart';
 import '../../../applications/domain/entities/application.dart';
 import '../../../applications/presentation/bloc/application_bloc.dart';
 import '../../../applications/presentation/bloc/student_applications_cubit.dart';
@@ -150,9 +151,18 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
     final Set<String> appliedIds =
         _appliedIds(context.watch<StudentApplicationsCubit>().state);
     return Scaffold(
-      appBar: AppBar(title: const Text('Active events')),
       body: Column(
         children: <Widget>[
+          DashboardHeader(
+            title: 'Active',
+            titleAccent: 'events',
+            subtitle: 'Find and apply for the events that match you ✨',
+            trailing: HeaderIconButton(
+              icon: Icons.notifications_none_rounded,
+              showDot: true,
+              onPressed: () {},
+            ),
+          ),
           _Controls(
             search: _search,
             sort: _sort,
@@ -169,15 +179,8 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
                 return switch (state) {
                   EventsLoaded(:final List<Event> events) =>
                     _buildList(_visible(events), appliedIds),
-                  EventsEmpty() => const StudentDashboardMessage(
-                      key: ValueKey<String>('active-events-empty'),
-                      icon: Icons.event_busy_outlined,
-                      message: 'No active events are available.',
-                    ),
-                  SearchNoResults() => const StudentDashboardMessage(
-                      icon: Icons.event_busy_outlined,
-                      message: 'No active events are available.',
-                    ),
+                  EventsEmpty() => const _ComingSoon(),
+                  SearchNoResults() => const _ComingSoon(),
                   EventDiscoveryFailure(:final String message) =>
                     StudentDashboardMessage(
                       key: const ValueKey<String>('active-events-error'),
@@ -203,10 +206,14 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-      itemCount: events.length,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      // One extra item at the end for the "Apply early!" promo card.
+      itemCount: events.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (BuildContext context, int index) {
+        if (index == events.length) {
+          return const _ApplyEarlyCard();
+        }
         final Event event = events[index];
         final bool applied = appliedIds.contains(event.eventId);
         return EventCard(
@@ -216,6 +223,95 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
           onTap: () => _openDetail(event, applied: applied),
         );
       },
+    );
+  }
+}
+
+/// The lavender "Apply early!" tip card shown under the event list.
+class _ApplyEarlyCard extends StatelessWidget {
+  const _ApplyEarlyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.accentSoft,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.verified_user_outlined,
+                color: AppColors.accent, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text('Apply early!',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w700,
+                    )),
+                const SizedBox(height: 2),
+                Text('Increase your chances of getting selected.',
+                    style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          const Text('⏱️', style: TextStyle(fontSize: 26)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The friendly "more events coming soon" empty state.
+class _ComingSoon extends StatelessWidget {
+  const _ComingSoon();
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              height: 96,
+              width: 96,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.accentSoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Text('🎪', style: TextStyle(fontSize: 44)),
+            ),
+            const SizedBox(height: 16),
+            Text('More events coming soon',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+              'New gigs are added regularly — check back shortly.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -250,27 +346,65 @@ class _Controls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Column(
         children: <Widget>[
-          TextField(
-            key: const ValueKey<String>('active-search-field'),
-            controller: search,
-            onChanged: onQueryChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'Search by title or location',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: search.text.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        search.clear();
-                        onQueryChanged('');
-                      },
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Material(
+                  color: Colors.white,
+                  elevation: 3,
+                  shadowColor: const Color(0x14101828),
+                  borderRadius: BorderRadius.circular(16),
+                  child: TextField(
+                    key: const ValueKey<String>('active-search-field'),
+                    controller: search,
+                    onChanged: onQueryChanged,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Search by title or location',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: search.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                search.clear();
+                                onQueryChanged('');
+                              },
+                            ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(
+                            color: AppColors.accent, width: 1.4),
+                      ),
                     ),
-            ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Filters shortcut (date range) styled as an accent tile.
+              Material(
+                color: AppColors.accentSoft,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  onTap: onPickRange,
+                  borderRadius: BorderRadius.circular(16),
+                  child: const Padding(
+                    padding: EdgeInsets.all(15),
+                    child: Icon(Icons.tune_rounded,
+                        color: AppColors.accent, size: 22),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
@@ -289,8 +423,9 @@ class _Controls extends StatelessWidget {
                       ),
                   ],
                   child: _PillButton(
-                    icon: Icons.swap_vert,
+                    icon: Icons.calendar_today_outlined,
                     label: _sortLabels[sort]!,
+                    showChevron: true,
                   ),
                 ),
               ),
@@ -301,6 +436,7 @@ class _Controls extends StatelessWidget {
                         icon: Icons.date_range_outlined,
                         label: 'Date range',
                         onTap: onPickRange,
+                        showChevron: true,
                       )
                     : _PillButton(
                         icon: Icons.event_available_outlined,
@@ -330,30 +466,30 @@ class _PillButton extends StatelessWidget {
     required this.label,
     this.onTap,
     this.onTrailingTap,
+    this.showChevron = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
   final VoidCallback? onTrailingTap;
+  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: Colors.white,
+      elevation: 3,
+      shadowColor: const Color(0x14101828),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           child: Row(
             children: <Widget>[
-              Icon(icon, size: 18, color: AppColors.textSecondary),
+              Icon(icon, size: 17, color: AppColors.accent),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -369,12 +505,12 @@ class _PillButton extends StatelessWidget {
               if (onTrailingTap != null)
                 GestureDetector(
                   onTap: onTrailingTap,
-                  child: const Icon(
-                    Icons.close,
-                    size: 16,
-                    color: AppColors.textMuted,
-                  ),
-                ),
+                  child: const Icon(Icons.close,
+                      size: 16, color: AppColors.textMuted),
+                )
+              else if (showChevron)
+                const Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 20, color: AppColors.textMuted),
             ],
           ),
         ),

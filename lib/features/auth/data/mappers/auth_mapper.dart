@@ -28,6 +28,8 @@ class AuthMapper {
         return UserRole.student;
       case 'vendor':
         return UserRole.vendor;
+      case 'staff':
+        return UserRole.staff;
       case 'admin':
         return UserRole.admin;
       default:
@@ -42,6 +44,8 @@ class AuthMapper {
         return 'student';
       case UserRole.vendor:
         return 'vendor';
+      case UserRole.staff:
+        return 'staff';
       case UserRole.admin:
         return 'admin';
     }

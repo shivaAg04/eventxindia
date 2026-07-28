@@ -13,6 +13,8 @@ import '../../domain/entities/otp_session.dart';
 import '../../domain/entities/session_state.dart';
 import '../../domain/entities/user_role.dart';
 import '../../domain/logic/otp_policy.dart';
+import '../../../staff/domain/entities/staff_member.dart';
+import '../../../staff/domain/repositories/staff_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/firebase_auth_data_source.dart';
 import '../dtos/auth_throttle_dto.dart';
@@ -36,7 +38,7 @@ import '../mappers/auth_mapper.dart';
 @LazySingleton(as: AuthRepository)
 class FirebaseAuthRepositoryImpl implements AuthRepository {
   @factoryMethod
-  FirebaseAuthRepositoryImpl.inject(this._dataSource)
+  FirebaseAuthRepositoryImpl.inject(this._dataSource, this._staffRepository)
       : _clock = DateTime.now,
         _maxWriteAttempts = kDefaultMaxWriteAttempts;
 
@@ -44,12 +46,18 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
     this._dataSource, {
     DateTime Function()? clock,
     int maxWriteAttempts = kDefaultMaxWriteAttempts,
+    StaffRepository? staffRepository,
   })  : _clock = clock ?? DateTime.now,
-        _maxWriteAttempts = maxWriteAttempts;
+        _maxWriteAttempts = maxWriteAttempts,
+        _staffRepository = staffRepository;
 
   final FirebaseAuthDataSource _dataSource;
   final DateTime Function() _clock;
   final int _maxWriteAttempts;
+
+  /// Resolves an invited staff member on first sign-in (Phase B). `null` in
+  /// tests / read-only contexts that don't wire staff.
+  final StaffRepository? _staffRepository;
 
   /// Upper bound on any single throttle-ledger read/write. The `authThrottle`
   /// ledger is best-effort (R1.4 lockout is a soft guard), but a Firestore write
@@ -149,10 +157,27 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
       otpIssuedAt: null,
     );
 
-    final DocumentSnapshot<Map<String, dynamic>> userDoc =
+    DocumentSnapshot<Map<String, dynamic>> userDoc =
         await _dataSource.readUserDoc(user.uid);
-    final AuthUser? authUser =
-        AuthMapper.authUserFromFirebase(user, userDoc.data());
+    AuthUser? authUser = AuthMapper.authUserFromFirebase(user, userDoc.data());
+
+    // No role yet: before falling back to registration, see if this phone was
+    // invited as staff. If so, provisioning writes users/{uid} with role
+    // 'staff', so a fresh read now resolves to a staff AuthUser (Phase B).
+    if (authUser == null && _staffRepository != null) {
+      final String? phone = user.phoneNumber;
+      if (phone != null && phone.isNotEmpty) {
+        final Result<StaffMember?, Failure> provisioned =
+            await _staffRepository.provisionOnLogin(
+          uid: user.uid,
+          phoneE164: phone,
+        );
+        if (provisioned.valueOrNull != null) {
+          userDoc = await _dataSource.readUserDoc(user.uid);
+          authUser = AuthMapper.authUserFromFirebase(user, userDoc.data());
+        }
+      }
+    }
 
     if (authUser == null) {
       // Verified but no role assigned yet. The code WAS accepted (a session

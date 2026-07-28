@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bootstrap/device_token_registrar.dart';
@@ -22,6 +23,8 @@ import 'features/events/domain/usecases/watch_vendor_events.dart';
 import 'core/value_objects/approval_status.dart';
 import 'core/value_objects/rating.dart';
 import 'features/config/presentation/bloc/platform_config_cubit.dart';
+import 'features/staff/domain/repositories/staff_repository.dart';
+import 'features/staff/presentation/bloc/staff_cubit.dart';
 import 'features/ratings/domain/usecases/rate_student.dart';
 import 'features/ratings/domain/usecases/watch_event_ratings.dart';
 import 'features/ratings/domain/usecases/watch_student_ratings.dart';
@@ -55,6 +58,19 @@ Future<void> main() async {
   // live backend until configuration is added.
   try {
     await initializeFirebase();
+
+    // DEBUG ONLY: skip Play Integrity / reCAPTCHA app-verification so Firebase
+    // "test phone numbers" (Console → Auth → Phone → numbers for testing) log in
+    // instantly without a registered SHA fingerprint. On Android the SDK
+    // otherwise runs app verification even for test numbers, which hangs when no
+    // SHA / reCAPTCHA is configured (the OTP screen never appears). This has NO
+    // effect on release builds and does NOT affect real phone numbers.
+    if (kDebugMode) {
+      await FirebaseAuth.instance.setSettings(
+        appVerificationDisabledForTesting: true,
+      );
+    }
+
     await configureDependencies();
   } catch (error, stackTrace) {
     debugPrint('EventXIndia bootstrap skipped backend wiring: $error');
@@ -78,13 +94,13 @@ class EventXIndiaApp extends StatelessWidget {
     return MaterialApp(
       title: 'EventXIndia',
       debugShowCheckedModeBanner: false,
-      // The product is dark-only by design; wire the one theme as both slots
-      // so it holds regardless of the platform brightness setting.
-      theme: AppTheme.dark,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.dark,
-      // Paint the signature "aurora" glow behind every screen so the whole app
-      // shares the same depth without each screen opting in.
+      // The product is light by design; wire the one theme as both slots so it
+      // holds regardless of the platform brightness setting.
+      theme: AppTheme.light,
+      darkTheme: AppTheme.light,
+      themeMode: ThemeMode.light,
+      // Paint the soft light canvas behind every screen so the whole app shares
+      // the same base without each screen opting in.
       builder: (BuildContext context, Widget? child) => DecoratedBox(
         decoration: const BoxDecoration(gradient: AppGradients.canvas),
         child: child,
@@ -178,6 +194,9 @@ class _RoutedAppState extends State<_RoutedApp> {
         stars: stars,
       ),
       createPlatformConfigCubit: () => getIt<PlatformConfigCubit>(),
+      createStaffCubit: () => getIt<StaffCubit>(),
+      findStaffByPhone: (String phoneE164) =>
+          getIt<StaffRepository>().findByPhone(phoneE164),
       setEventApproval: (String eventId, ApprovalStatus status) async {
         final result = await getIt<SetEventApproval>()(
           eventId: eventId,

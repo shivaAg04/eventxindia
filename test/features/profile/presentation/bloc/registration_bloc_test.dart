@@ -22,8 +22,12 @@ class _FakeProfileRepository implements ProfileRepository {
   Result<Vendor, Failure> vendorResult =
       Result<Vendor, Failure>.err(const PersistenceFailure());
 
+  /// The most recent student passed to [createStudent], for assertions.
+  Student? capturedStudent;
+
   @override
   Future<Result<Student, Failure>> createStudent(Student student) async {
+    capturedStudent = student;
     return studentResult;
   }
 
@@ -193,10 +197,25 @@ void main() {
   );
 
   blocTest<RegistrationBloc, RegistrationState>(
-    'StudentSubmitted emits RegistrationFailure on storage failure',
+    'StudentSubmitted still registers (photo skipped) when the upload fails',
     build: () {
+      // Photo upload is best-effort: a failure must not block registration.
       storage.uploadResult =
           Result<String, Failure>.err(const PersistenceFailure());
+      profile.studentResult = Result<Student, Failure>.ok(
+        Student(
+          uid: 'u1',
+          fullName: 'Asha Rao',
+          phone: PhoneNumber.national('9876543210'),
+          gender: Gender.female,
+          dateOfBirth: DateTime(2000, 1, 1),
+          city: 'Pune',
+          heightCm: 165,
+          profilePhotoPath: '',
+          createdAt: fixedNow,
+          updatedAt: fixedNow,
+        ),
+      );
       return buildBloc();
     },
     seed: () => RegistrationEditing(
@@ -213,8 +232,12 @@ void main() {
     act: (bloc) => bloc.add(const StudentSubmitted(uid: 'u1')),
     expect: () => <Matcher>[
       isA<RegistrationSubmitting>(),
-      isA<RegistrationFailure>(),
+      isA<Registered>(),
     ],
+    verify: (_) {
+      // Registration proceeded with no photo path rather than failing.
+      expect(profile.capturedStudent?.profilePhotoPath, '');
+    },
   );
 
   const validVendorForm = VendorFormData(

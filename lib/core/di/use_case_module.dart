@@ -55,6 +55,10 @@ import '../../features/config/domain/repositories/platform_config_repository.dar
 import '../../features/config/domain/usecases/get_commission_percent.dart';
 import '../../features/config/domain/usecases/set_commission_percent.dart';
 import '../../features/config/domain/usecases/watch_commission_percent.dart';
+import '../../features/staff/domain/repositories/staff_repository.dart';
+import '../../features/staff/domain/usecases/add_staff.dart';
+import '../../features/staff/domain/usecases/remove_staff.dart';
+import '../../features/staff/domain/usecases/watch_vendor_staff.dart';
 
 /// Composition-root bindings for the domain use cases.
 ///
@@ -302,6 +306,20 @@ abstract class UseCaseModule {
 
   @lazySingleton
   GetMetrics getMetrics(MetricsService service) => GetMetrics(service);
+
+  // --- Staff (vendor team) -------------------------------------------------
+
+  @lazySingleton
+  AddStaff addStaff(StaffRepository repository) =>
+      AddStaff(repository: repository, now: DateTime.now);
+
+  @lazySingleton
+  RemoveStaff removeStaff(StaffRepository repository) =>
+      RemoveStaff(repository: repository);
+
+  @lazySingleton
+  WatchVendorStaff watchVendorStaff(StaffRepository repository) =>
+      WatchVendorStaff(repository: repository);
 
   // --- Navigation guards (R3) ----------------------------------------------
 

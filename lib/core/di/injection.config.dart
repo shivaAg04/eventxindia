@@ -168,6 +168,16 @@ import '../../features/reports/domain/repositories/report_repository.dart'
 import '../../features/reports/domain/usecases/list_reports.dart' as _i517;
 import '../../features/reports/domain/usecases/submit_report.dart' as _i684;
 import '../../features/reports/presentation/bloc/report_bloc.dart' as _i652;
+import '../../features/staff/data/datasources/firestore_staff_data_source.dart'
+    as _i66;
+import '../../features/staff/data/repositories/firestore_staff_repository_impl.dart'
+    as _i749;
+import '../../features/staff/domain/repositories/staff_repository.dart'
+    as _i841;
+import '../../features/staff/domain/usecases/add_staff.dart' as _i911;
+import '../../features/staff/domain/usecases/remove_staff.dart' as _i43;
+import '../../features/staff/domain/usecases/watch_vendor_staff.dart' as _i715;
+import '../../features/staff/presentation/bloc/staff_cubit.dart' as _i510;
 import '../../features/wallet/data/datasources/firestore_withdrawal_data_source.dart'
     as _i1034;
 import '../../features/wallet/data/repositories/firestore_wallet_repository_impl.dart'
@@ -241,6 +251,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i621.FirestoreReportDataSource>(
       () => _i621.FirestoreReportDataSource(gh<_i974.FirebaseFirestore>()),
     );
+    gh.factory<_i66.FirestoreStaffDataSource>(
+      () => _i66.FirestoreStaffDataSource(gh<_i974.FirebaseFirestore>()),
+    );
     gh.factory<_i1034.FirestoreWithdrawalDataSource>(
       () => _i1034.FirestoreWithdrawalDataSource(gh<_i974.FirebaseFirestore>()),
     );
@@ -265,11 +278,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i232.DeviceLocationService>(
       () => const _i232.GeolocatorDeviceLocationService(),
-    );
-    gh.lazySingleton<_i787.AuthRepository>(
-      () => _i996.FirebaseAuthRepositoryImpl.inject(
-        gh<_i492.FirebaseAuthDataSource>(),
-      ),
     );
     gh.lazySingleton<_i199.EventRepository>(
       () => _i618.FirestoreEventRepositoryImpl(
@@ -364,6 +372,20 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i799.FirestoreEarningsDataSource>(),
       ),
     );
+    gh.lazySingleton<_i841.StaffRepository>(
+      () => _i749.FirestoreStaffRepositoryImpl(
+        gh<_i66.FirestoreStaffDataSource>(),
+      ),
+    );
+    gh.lazySingleton<_i911.AddStaff>(
+      () => useCaseModule.addStaff(gh<_i841.StaffRepository>()),
+    );
+    gh.lazySingleton<_i43.RemoveStaff>(
+      () => useCaseModule.removeStaff(gh<_i841.StaffRepository>()),
+    );
+    gh.lazySingleton<_i715.WatchVendorStaff>(
+      () => useCaseModule.watchVendorStaff(gh<_i841.StaffRepository>()),
+    );
     gh.lazySingleton<_i569.NotificationService>(
       () => _i961.FirebaseNotificationServiceImpl(
         gh<_i317.FirebaseNotificationDataSource>(),
@@ -384,6 +406,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i326.EarningsService>(
       () => _i89.FirestoreEarningsService(gh<_i1028.EarningsRepository>()),
+    );
+    gh.lazySingleton<_i787.AuthRepository>(
+      () => _i996.FirebaseAuthRepositoryImpl.inject(
+        gh<_i492.FirebaseAuthDataSource>(),
+        gh<_i841.StaffRepository>(),
+      ),
     );
     gh.lazySingleton<_i293.CheckIn>(
       () => useCaseModule.checkIn(
@@ -510,6 +538,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i566.WatchStudentApplications>(),
         gh<_i390.WatchStudentWithdrawals>(),
         gh<_i418.RequestWithdrawal>(),
+      ),
+    );
+    gh.factory<_i510.StaffCubit>(
+      () => _i510.StaffCubit(
+        gh<_i715.WatchVendorStaff>(),
+        gh<_i911.AddStaff>(),
+        gh<_i43.RemoveStaff>(),
       ),
     );
     gh.lazySingleton<_i176.GetEarnings>(
