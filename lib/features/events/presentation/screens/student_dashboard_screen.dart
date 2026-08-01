@@ -105,6 +105,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       uid: widget.studentId,
       createCubit: widget.createStudentProfileCubit,
       ratingsStream: widget.watchStudentRatings(widget.studentId),
+      createWalletCubit: widget.createWalletCubit,
+      createStudentApplicationsCubit: widget.createStudentApplicationsCubit,
     ),
   ];
 
@@ -137,8 +139,8 @@ class _NavItem {
   final String label;
 }
 
-/// A floating white nav bar where the selected item is a red pill carrying its
-/// icon + label; unselected items show a muted icon + label.
+/// A floating white nav bar: each item shows its icon + label; the selected
+/// item is red with a short underline bar (matching the design).
 class _PillBottomNav extends StatelessWidget {
   const _PillBottomNav({
     required this.index,
@@ -156,10 +158,10 @@ class _PillBottomNav extends StatelessWidget {
       top: false,
       child: Container(
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(26),
           boxShadow: const <BoxShadow>[
             BoxShadow(
               color: Color(0x1A101828),
@@ -171,10 +173,12 @@ class _PillBottomNav extends StatelessWidget {
         child: Row(
           children: <Widget>[
             for (int i = 0; i < items.length; i++)
-              _NavCell(
-                item: items[i],
-                selected: i == index,
-                onTap: () => onSelected(i),
+              Expanded(
+                child: _NavCell(
+                  item: items[i],
+                  selected: i == index,
+                  onTap: () => onSelected(i),
+                ),
               ),
           ],
         ),
@@ -196,45 +200,38 @@ class _NavCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The selected cell expands to fit its label pill; others stay compact.
-    return Expanded(
-      flex: selected ? 0 : 1,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(
-            horizontal: selected ? 16 : 10,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppColors.primary.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                selected ? item.selectedIcon : item.icon,
-                size: 22,
-                color: selected ? AppColors.primary : AppColors.textMuted,
+    final Color color = selected ? AppColors.primary : AppColors.textMuted;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(selected ? item.selectedIcon : item.icon, size: 24, color: color),
+            const SizedBox(height: 4),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 11,
               ),
-              if (selected) ...<Widget>[
-                const SizedBox(width: 8),
-                Text(
-                  item.label,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
+            const SizedBox(height: 4),
+            // The short underline marker under the selected item.
+            Container(
+              height: 3,
+              width: selected ? 18 : 0,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
         ),
       ),
     );

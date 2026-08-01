@@ -242,6 +242,8 @@ class AppDestinationScreenFactory {
             uid: uid,
             createCubit: createStudentProfileCubit,
             ratingsStream: watchStudentRatings(uid),
+            createWalletCubit: createWalletCubit,
+            createStudentApplicationsCubit: createStudentApplicationsCubit,
           ),
         );
       case Destination.studentReports:

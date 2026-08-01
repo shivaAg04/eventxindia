@@ -57,7 +57,8 @@
       "Bash(awk 'NR>=320 && NR<=360 && \\(/class _/ || /required this\\\\./ || /final .* Function/ || /StreamBuilder|FutureBuilder/\\)' lib/routing/app_destination_screen_factory.dart)",
       "Bash(awk 'NR<=355 && /^class /{last=NR\": \"$0} END{print last}' lib/routing/app_destination_screen_factory.dart)",
       "Bash(sed -n '/roleFromString/,/^  }/p;/roleToString/,/^  }/p' lib/features/auth/data/mappers/auth_mapper.dart)",
-      "Bash(sed -n '/authUserFromFirebase/,/^  }/p' lib/features/auth/data/mappers/auth_mapper.dart)"
+      "Bash(sed -n '/authUserFromFirebase/,/^  }/p' lib/features/auth/data/mappers/auth_mapper.dart)",
+      "Bash(flutter pub *)"
     ],
     "additionalDirectories": [
       "/Users/adda247/development/personal/event-x/lib/features/profile/domain/entities"

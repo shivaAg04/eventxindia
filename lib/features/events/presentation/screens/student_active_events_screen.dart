@@ -83,14 +83,44 @@ class _ActiveEventsView extends StatefulWidget {
 
 class _ActiveEventsViewState extends State<_ActiveEventsView> {
   final TextEditingController _search = TextEditingController();
+  final ScrollController _scroll = ScrollController();
   String _query = '';
   EventSort _sort = EventSort.dateAsc;
   DateTimeRange? _range;
 
+  /// Whether the "scroll to top" button should be visible — only once the list
+  /// has been scrolled down a bit.
+  bool _showScrollTop = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final bool show = _scroll.hasClients && _scroll.offset > 280;
+    if (show != _showScrollTop) {
+      setState(() => _showScrollTop = show);
+    }
+  }
+
   @override
   void dispose() {
+    _scroll.removeListener(_onScroll);
     _search.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  void _scrollToTop() {
+    if (_scroll.hasClients) {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   /// Applies past-event exclusion → search → date-range → sort to the streamed
@@ -151,16 +181,35 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
     final Set<String> appliedIds =
         _appliedIds(context.watch<StudentApplicationsCubit>().state);
     return Scaffold(
+      // "Scroll to top" — appears only after scrolling down a bit.
+      floatingActionButton: AnimatedScale(
+        scale: _showScrollTop ? 1 : 0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutBack,
+        child: FloatingActionButton(
+          key: const ValueKey<String>('active-scroll-top'),
+          backgroundColor: AppColors.accent,
+          foregroundColor: Colors.white,
+          onPressed: _scrollToTop,
+          child: const Icon(Icons.keyboard_arrow_up_rounded, size: 28),
+        ),
+      ),
       body: Column(
         children: <Widget>[
           DashboardHeader(
             title: 'Active',
             titleAccent: 'events',
             subtitle: 'Find and apply for the events that match you ✨',
-            trailing: HeaderIconButton(
-              icon: Icons.notifications_none_rounded,
-              showDot: true,
-              onPressed: () {},
+            // trailing: HeaderIconButton(
+            //   icon: Icons.notifications_none_rounded,
+            //   showDot: true,
+            //   onPressed: () {},
+            // ),
+            mascot: Image.asset(
+              'assets/images/all_event.png',
+              width: 180,
+              height: 150,
+              fit: BoxFit.contain,
             ),
           ),
           _Controls(
@@ -206,7 +255,8 @@ class _ActiveEventsViewState extends State<_ActiveEventsView> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      controller: _scroll,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       // One extra item at the end for the "Apply early!" promo card.
       itemCount: events.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -346,65 +396,64 @@ class _Controls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Column(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Material(
-                  color: Colors.white,
-                  elevation: 3,
-                  shadowColor: const Color(0x14101828),
-                  borderRadius: BorderRadius.circular(16),
-                  child: TextField(
-                    key: const ValueKey<String>('active-search-field'),
-                    controller: search,
-                    onChanged: onQueryChanged,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'Search by title or location',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: search.text.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                search.clear();
-                                onQueryChanged('');
-                              },
-                            ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(
-                            color: AppColors.accent, width: 1.4),
+          // One large white pill: big purple search icon on the left, and the
+          // accent "tune" filter button tucked inside on the right.
+          Material(
+            color: Colors.white,
+            elevation: 4,
+            shadowColor: const Color(0x1A101828),
+            borderRadius: BorderRadius.circular(32),
+            child: TextField(
+              key: const ValueKey<String>('active-search-field'),
+              controller: search,
+              onChanged: onQueryChanged,
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(
+                  fontSize: 16, color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 20),
+                hintText: 'Search by title or location',
+                hintStyle: const TextStyle(
+                    color: AppColors.textMuted, fontSize: 16),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 18, right: 10),
+                  child: Icon(Icons.search, color: AppColors.accent, size: 26),
+                ),
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 0, minHeight: 0),
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Material(
+                    color: AppColors.accentSoft,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      onTap: onPickRange,
+                      borderRadius: BorderRadius.circular(16),
+                      child: const Padding(
+                        padding: EdgeInsets.all(11),
+                        child: Icon(Icons.tune_rounded,
+                            color: AppColors.accent, size: 22),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              // Filters shortcut (date range) styled as an accent tile.
-              Material(
-                color: AppColors.accentSoft,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  onTap: onPickRange,
-                  borderRadius: BorderRadius.circular(16),
-                  child: const Padding(
-                    padding: EdgeInsets.all(15),
-                    child: Icon(Icons.tune_rounded,
-                        color: AppColors.accent, size: 22),
-                  ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(32),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(32),
+                  borderSide:
+                      const BorderSide(color: AppColors.accent, width: 1.4),
                 ),
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 12),
           Row(

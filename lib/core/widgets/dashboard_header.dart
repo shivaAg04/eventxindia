@@ -39,15 +39,8 @@ class DashboardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[AppColors.accentSoft, Color(0x00EDEBFB)],
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
       child: SafeArea(
         bottom: false,
         child: Row(
@@ -55,9 +48,11 @@ class DashboardHeader extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 4),
+                padding: const EdgeInsets.only(top: 12, bottom: 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  // mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: <Widget>[
                     RichText(
                       text: TextSpan(
@@ -87,17 +82,8 @@ class DashboardHeader extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(
-              width: 96,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: <Widget>[
-                  ?trailing,
-                  const SizedBox(height: 4),
-                  mascot ?? const _MascotPlaceholder(),
-                ],
-              ),
-            ),
+          
+             mascot?? const _MascotPlaceholder(),
           ],
         ),
       ),

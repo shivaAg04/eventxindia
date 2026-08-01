@@ -3,8 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/value_objects/application_status.dart';
 import '../../../../core/value_objects/money.dart';
+import '../../../../core/widgets/dashboard_header.dart';
 import '../../../applications/domain/entities/application.dart';
 import '../../../applications/presentation/bloc/student_applications_cubit.dart';
 import '../../../attendance/domain/entities/attendance_record.dart';
@@ -112,72 +114,82 @@ class _StudentEventsScreenState extends State<StudentEventsScreen> {
         ),
       ],
       child: Scaffold(
-        appBar: AppBar(title: const Text('My events')),
-        body: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: TextField(
-                controller: _search,
-                onChanged: (String v) => setState(() => _query = v),
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Search events by name',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _search.clear();
-                            setState(() => _query = '');
-                          },
-                        ),
-                  border: const OutlineInputBorder(),
+        // The header + filter scroll away; the search bar pins to the top and
+        // then the list scrolls beneath it.
+        body: NestedScrollView(
+          headerSliverBuilder: (BuildContext context, bool _) => <Widget>[
+            SliverToBoxAdapter(
+              child: DashboardHeader(
+                title: 'My',
+                titleAccent: 'events',
+                subtitle: 'Manage all your event schedules',
+                mascot: Image.asset(
+                  'assets/images/my_event.png',
+                  width: 190,
+                  height: 150,
+                  fit: BoxFit.fitWidth,
                 ),
               ),
             ),
-            _FilterBar(
-              status: _status,
-              activity: _activity,
-              onStatusChanged: (ApplicationStatus? v) =>
-                  setState(() => _status = v),
-              onActivityChanged: (_EventActivity v) =>
-                  setState(() => _activity = v),
-            ),
-            Expanded(
-              child: BlocBuilder<StudentApplicationsCubit,
-                  StudentApplicationsState>(
-                builder:
-                    (BuildContext context, StudentApplicationsState state) {
-                  return switch (state) {
-                    StudentApplicationsLoading() =>
-                      const Center(child: CircularProgressIndicator()),
-                    StudentApplicationsFailure(:final String message) =>
-                      _Message(
-                        icon: Icons.error_outline,
-                        text: 'Your events could not be loaded.\n$message',
+            // Search bar + filter card both pin to the top together.
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _PinnedControlsDelegate(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: _SearchField(
+                        controller: _search,
+                        query: _query,
+                        onChanged: (String v) => setState(() => _query = v),
+                        onClear: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
                       ),
-                    StudentApplicationsEmpty() => const _Message(
-                        icon: Icons.inbox_outlined,
-                        text: 'You have not applied to any events yet.',
-                      ),
-                    StudentApplicationsLoaded(
-                      :final List<Application> applications,
-                    ) =>
-                      _EventsList(
-                        applications: applications,
-                        matches: _matches,
-                        createAttendanceBloc: widget.createAttendanceBloc,
-                        getEvent: widget.getEvent,
-                        ratingsStream: widget.ratingsStream,
-                      ),
-                  };
-                },
+                    ),
+                    _FilterCard(
+                      status: _status,
+                      activity: _activity,
+                      onStatusChanged: (ApplicationStatus? v) =>
+                          setState(() => _status = v),
+                      onActivityChanged: (_EventActivity v) =>
+                          setState(() => _activity = v),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
+          body: BlocBuilder<StudentApplicationsCubit,
+              StudentApplicationsState>(
+            builder: (BuildContext context, StudentApplicationsState state) {
+              return switch (state) {
+                StudentApplicationsLoading() =>
+                  const Center(child: CircularProgressIndicator()),
+                StudentApplicationsFailure(:final String message) => _Message(
+                    icon: Icons.error_outline,
+                    text: 'Your events could not be loaded.\n$message',
+                  ),
+                StudentApplicationsEmpty() => const _Message(
+                    icon: Icons.inbox_outlined,
+                    text: 'You have not applied to any events yet.',
+                  ),
+                StudentApplicationsLoaded(
+                  :final List<Application> applications,
+                ) =>
+                  _EventsList(
+                    applications: applications,
+                    matches: _matches,
+                    createAttendanceBloc: widget.createAttendanceBloc,
+                    getEvent: widget.getEvent,
+                    ratingsStream: widget.ratingsStream,
+                  ),
+              };
+            },
+          ),
         ),
       ),
     );
@@ -314,6 +326,13 @@ class _EventCard extends StatelessWidget {
     );
   }
 
+  /// The card's accent (left stripe + icon tile) keyed to the status.
+  Color get _accent => switch (application.status) {
+        ApplicationStatus.approved => AppColors.accent,
+        ApplicationStatus.pending => AppColors.amber,
+        ApplicationStatus.rejected => AppColors.danger,
+      };
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -327,119 +346,153 @@ class _EventCard extends StatelessWidget {
     return Card(
       child: InkWell(
         onTap: () => _openDetail(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(18),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Icon(Icons.event_available_outlined, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      application.eventTitle ?? 'Event ${application.eventId}',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _StatusBadge(status: application.status),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right, size: 18),
-                ],
-              ),
-            if (detailBits.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.only(left: 30),
-                child: Text(
-                  detailBits.join('  •  '),
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
-            ],
-            if (rating != null) ...<Widget>[
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.only(left: 30),
-                child: Row(
-                  children: <Widget>[
-                    Text('Your rating  ', style: theme.textTheme.bodySmall),
-                    StarRatingBar(stars: rating!.stars.stars.toDouble()),
-                  ],
-                ),
-              ),
-            ],
-            if (_approved) ...<Widget>[
-              const Divider(height: 24),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: _StatusLine(
-                      label: 'Check-in',
-                      done: _checkedIn,
-                      time: record?.checkInTime,
-                    ),
-                  ),
-                  if (record?.workingHours != null) ...<Widget>[
-                    const SizedBox(width: 8),
-                    _HoursPill(hours: record!.workingHours!),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
-              _StatusLine(
-                label: 'Check-out',
-                done: _checkedOut,
-                time: record?.checkOutTime,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: ValueKey<String>(
-                        'events-checkin-${application.eventId}',
+              // Left status stripe.
+              Container(width: 5, color: _accent),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Container(
+                            height: 46,
+                            width: 46,
+                            decoration: BoxDecoration(
+                              color: _accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(Icons.event_note_rounded,
+                                color: _accent, size: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Row(
+                                  children: <Widget>[
+                                    Expanded(
+                                      child: Text(
+                                        application.eventTitle ??
+                                            'Event ${application.eventId}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _StatusBadge(status: application.status),
+                                    const SizedBox(width: 2),
+                                    const Icon(Icons.chevron_right,
+                                        size: 18, color: AppColors.textMuted),
+                                  ],
+                                ),
+                                if (detailBits.isNotEmpty) ...<Widget>[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    detailBits.join('  •  '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      icon: const Icon(Icons.login, size: 18),
-                      label: const Text('Check in'),
-                      onPressed: _checkedIn
-                          ? null
-                          : () => _open(context, checkIn: true),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: ValueKey<String>(
-                        'events-checkout-${application.eventId}',
-                      ),
-                      icon: const Icon(Icons.logout, size: 18),
-                      label: const Text('Check out'),
-                      onPressed: _checkedIn && !_checkedOut
-                          ? () => _open(context, checkIn: false)
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ] else ...<Widget>[
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.only(left: 30),
-                child: Text(
-                  application.status == ApplicationStatus.pending
-                      ? 'Awaiting organiser approval — attendance opens once '
-                          'approved.'
-                      : 'This application was not approved.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                      if (rating != null) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: <Widget>[
+                            Text('Your rating  ',
+                                style: theme.textTheme.bodySmall),
+                            StarRatingBar(
+                                stars: rating!.stars.stars.toDouble()),
+                          ],
+                        ),
+                      ],
+                      if (_approved) ...<Widget>[
+                        const Divider(height: 22),
+                        _StatusLine(
+                          label: 'Check-in',
+                          icon: Icons.check_circle_outline,
+                          done: _checkedIn,
+                          time: record?.checkInTime,
+                        ),
+                        const SizedBox(height: 8),
+                        _StatusLine(
+                          label: 'Check-out',
+                          icon: Icons.schedule_rounded,
+                          done: _checkedOut,
+                          time: record?.checkOutTime,
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                key: ValueKey<String>(
+                                    'events-checkin-${application.eventId}'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.primary,
+                                  side: const BorderSide(
+                                      color: AppColors.primary, width: 1.3),
+                                  minimumSize: const Size.fromHeight(48),
+                                ),
+                                icon: const Icon(Icons.login, size: 18),
+                                label: const Text('Check in'),
+                                onPressed: _checkedIn
+                                    ? null
+                                    : () => _open(context, checkIn: true),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                key: ValueKey<String>(
+                                    'events-checkout-${application.eventId}'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.accent,
+                                  side: const BorderSide(
+                                      color: AppColors.accent, width: 1.3),
+                                  minimumSize: const Size.fromHeight(48),
+                                ),
+                                icon: const Icon(Icons.logout, size: 18),
+                                label: const Text('Check out'),
+                                onPressed: _checkedIn && !_checkedOut
+                                    ? () => _open(context, checkIn: false)
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...<Widget>[
+                        const SizedBox(height: 8),
+                        Text(
+                          application.status == ApplicationStatus.pending
+                              ? 'Awaiting organiser approval — attendance '
+                                  'opens once approved.'
+                              : 'This application was not approved.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
-            ],
             ],
           ),
         ),
@@ -453,38 +506,34 @@ class _EventCard extends StatelessWidget {
 
 /// One check-in / check-out status line: icon, label, and time or "Pending".
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.label, required this.done, this.time});
+  const _StatusLine({
+    required this.label,
+    required this.icon,
+    required this.done,
+    this.time,
+  });
 
   final String label;
+  final IconData icon;
   final bool done;
   final DateTime? time;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final Color color =
-        done ? Colors.greenAccent : theme.colorScheme.onSurfaceVariant;
+    final Color color = done ? AppColors.success : AppColors.accent;
     return Row(
       children: <Widget>[
-        Icon(
-          done ? Icons.check_circle : Icons.radio_button_unchecked,
-          size: 16,
-          color: color,
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 74,
-          child: Text(label, style: theme.textTheme.bodyMedium),
-        ),
-        Expanded(
-          child: Text(
-            done && time != null ? _formatTime(time!) : 'Pending',
-            textAlign: TextAlign.right,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: color,
-              fontWeight: done ? FontWeight.w600 : FontWeight.w400,
-            ),
+        Icon(done ? Icons.check_circle : icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Text(label, style: theme.textTheme.bodyMedium),
+        const Spacer(),
+        Text(
+          done && time != null ? _formatTime(time!) : 'Pending',
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -494,12 +543,12 @@ class _StatusLine extends StatelessWidget {
   static String _formatTime(DateTime t) {
     final DateTime local = t.toLocal();
     String two(int n) => n.toString().padLeft(2, '0');
-    return '${local.year}-${two(local.month)}-${two(local.day)} '
+    return '${two(local.day)}/${two(local.month)} '
         '${two(local.hour)}:${two(local.minute)}';
   }
 }
 
-/// A compact coloured chip for an application's status.
+/// A compact solid-tint pill for an application's status.
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
 
@@ -508,16 +557,15 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color = switch (status) {
-      ApplicationStatus.approved => Colors.greenAccent,
-      ApplicationStatus.rejected => Theme.of(context).colorScheme.error,
-      ApplicationStatus.pending => Colors.amberAccent,
+      ApplicationStatus.approved => AppColors.success,
+      ApplicationStatus.rejected => AppColors.danger,
+      ApplicationStatus.pending => AppColors.amber,
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         status.wireName,
@@ -531,34 +579,98 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-/// A small pill showing the computed working hours for a completed record.
-class _HoursPill extends StatelessWidget {
-  const _HoursPill({required this.hours});
+/// Pins the search field + filter card to the top of the scroll view. Carries
+/// an opaque lavender background (matching the canvas) so the scrolling list
+/// never shows through behind the pinned controls.
+class _PinnedControlsDelegate extends SliverPersistentHeaderDelegate {
+  _PinnedControlsDelegate({required this.child});
 
-  final double hours;
+  final Widget child;
+
+  // Search field (~72) + filter card (~112), with a small buffer.
+  static const double _height = 192;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
+    return Container(
+      color: AppColors.background,
+      alignment: Alignment.topCenter,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedControlsDelegate oldDelegate) => true;
+}
+
+/// The white, rounded search field with the accent filter (tune) button.
+class _SearchField extends StatelessWidget {
+  const _SearchField({
+    required this.controller,
+    required this.query,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        '$hours h',
-        style: theme.textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w700,
+    // One large white pill with a big purple search icon (same as Active
+    // events); no side filter button here — the Status/Event card is below.
+    return Material(
+      color: Colors.white,
+      elevation: 4,
+      shadowColor: const Color(0x1A101828),
+      borderRadius: BorderRadius.circular(32),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 20),
+          hintText: 'Search events by name',
+          hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 16),
+          prefixIcon: const Padding(
+            padding: EdgeInsets.only(left: 18, right: 10),
+            child: Icon(Icons.search, color: AppColors.accent, size: 26),
+          ),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 0, minHeight: 0),
+          suffixIcon: query.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.clear), onPressed: onClear),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(32),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(32),
+            borderSide: const BorderSide(color: AppColors.accent, width: 1.4),
+          ),
         ),
       ),
     );
   }
 }
 
-/// The two combinable filter rows (status + event activity).
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
+/// The white card holding the Status and Event filter pill rows.
+class _FilterCard extends StatelessWidget {
+  const _FilterCard({
     required this.status,
     required this.activity,
     required this.onStatusChanged,
@@ -572,34 +684,61 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _ChipRow<ApplicationStatus?>(
+          _FilterRow(
             label: 'Status',
-            keyPrefix: 'events-filter-status',
-            value: status,
-            options: const <ApplicationStatus?, String>{
-              null: 'All',
-              ApplicationStatus.pending: 'Pending',
-              ApplicationStatus.approved: 'Approved',
-              ApplicationStatus.rejected: 'Rejected',
-            },
-            onChanged: onStatusChanged,
+            children: <Widget>[
+              _FilterPill(
+                label: 'All',
+                selected: status == null,
+                onTap: () => onStatusChanged(null),
+              ),
+              _FilterPill(
+                label: 'Pending',
+                selected: status == ApplicationStatus.pending,
+                onTap: () => onStatusChanged(ApplicationStatus.pending),
+              ),
+              _FilterPill(
+                label: 'Approved',
+                selected: status == ApplicationStatus.approved,
+                onTap: () => onStatusChanged(ApplicationStatus.approved),
+              ),
+              _FilterPill(
+                label: 'Rejected',
+                selected: status == ApplicationStatus.rejected,
+                onTap: () => onStatusChanged(ApplicationStatus.rejected),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          _ChipRow<_EventActivity>(
+          const SizedBox(height: 10),
+          _FilterRow(
             label: 'Event',
-            keyPrefix: 'events-filter-activity',
-            value: activity,
-            options: const <_EventActivity, String>{
-              _EventActivity.all: 'All',
-              _EventActivity.active: 'Active',
-              _EventActivity.inactive: 'Inactive',
-            },
-            onChanged: onActivityChanged,
+            children: <Widget>[
+              _FilterPill(
+                label: 'All',
+                selected: activity == _EventActivity.all,
+                onTap: () => onActivityChanged(_EventActivity.all),
+              ),
+              _FilterPill(
+                label: 'Active',
+                selected: activity == _EventActivity.active,
+                onTap: () => onActivityChanged(_EventActivity.active),
+              ),
+              _FilterPill(
+                label: 'Inactive',
+                selected: activity == _EventActivity.inactive,
+                onTap: () => onActivityChanged(_EventActivity.inactive),
+              ),
+            ],
           ),
         ],
       ),
@@ -607,52 +746,93 @@ class _FilterBar extends StatelessWidget {
   }
 }
 
-/// A single-select, horizontally scrollable row of [ChoiceChip]s.
-class _ChipRow<T> extends StatelessWidget {
-  const _ChipRow({
-    required this.label,
-    required this.keyPrefix,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
+/// A label + a wrapping set of filter pills.
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({required this.label, required this.children});
 
   final String label;
-  final String keyPrefix;
-  final T value;
-  final Map<T, String> options;
-  final ValueChanged<T> onChanged;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
         SizedBox(
-          width: 52,
-          child: Text(label, style: Theme.of(context).textTheme.labelMedium),
+          width: 54,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ),
         Expanded(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: <Widget>[
-                for (final MapEntry<T, String> entry in options.entries) ...
-                    <Widget>[
-                  ChoiceChip(
-                    key: ValueKey<String>(
-                      '$keyPrefix-${entry.value.toLowerCase()}',
-                    ),
-                    label: Text(entry.value),
-                    selected: value == entry.key,
-                    onSelected: (_) => onChanged(entry.key),
-                  ),
-                  const SizedBox(width: 8),
+                for (int i = 0; i < children.length; i++) ...<Widget>[
+                  if (i > 0) const SizedBox(width: 8),
+                  children[i],
                 ],
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A single filter pill: brand-tinted with a check when selected; otherwise a
+/// clean neutral-grey pill.
+class _FilterPill extends StatelessWidget {
+  const _FilterPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? AppColors.primary.withValues(alpha: 0.14)
+          : AppColors.fieldFill,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (selected) ...<Widget>[
+                const Icon(Icons.check_rounded,
+                    size: 15, color: AppColors.primary),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color:
+                      selected ? AppColors.primary : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

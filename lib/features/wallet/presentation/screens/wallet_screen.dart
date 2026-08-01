@@ -41,9 +41,16 @@ class WalletScreen extends StatelessWidget {
       child: Scaffold(
         body: Column(
           children: <Widget>[
-            const DashboardHeader(
-              title: 'Wallet',
+            DashboardHeader(
+              titleAccent: 'wallet',
+              title: 'My',
               subtitle: 'Track your earnings ✨',
+              mascot: Image.asset(
+                'assets/images/wallet.png',
+                width: 160,
+                height: 150,
+                fit: BoxFit.fitWidth,
+              ),
             ),
             Expanded(
               child: BlocBuilder<WalletCubit, WalletState>(
@@ -128,7 +135,7 @@ class _WalletView extends StatelessWidget {
     final bool noTxns = credits.isEmpty && wallet.withdrawals.isEmpty;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: <Widget>[
         _BalanceCard(wallet: wallet),
         const SizedBox(height: 14),

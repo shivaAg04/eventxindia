@@ -18,8 +18,9 @@ import 'package:flutter/services.dart';
 /// brand look.
 abstract final class AppColors {
   // ---- Backgrounds (canvas → surfaces) ---------------------------------
-  /// App canvas — a soft off-white behind cards.
-  static const Color background = Color(0xFFF4F5F7);
+  /// App canvas — a soft lavender/periwinkle wash behind white cards, giving
+  /// the whole app the playful tint from the design.
+  static const Color background = Color(0xFFEAE8F7);
 
   /// Base card / sheet surface — white.
   static const Color surface = Color(0xFFFFFFFF);
@@ -35,11 +36,12 @@ abstract final class AppColors {
   static const Color border = Color(0xFFE7E8EC);
 
   // ---- Accents ---------------------------------------------------------
-  /// Primary action colour — the brand red (CTAs, wallet header, selected nav).
-  static const Color primary = Color(0xFFE63329);
+  /// Primary action colour — the brand orange (CTAs, wallet header, selected
+  /// nav). Everything app-wide reads this token, so the brand hue lives here.
+  static const Color primary = Color(0xFFF97316);
 
-  /// A deeper red for gradients and pressed states.
-  static const Color primaryDark = Color(0xFFC42920);
+  /// A deeper orange for gradients and pressed states.
+  static const Color primaryDark = Color(0xFFEA580C);
 
   /// Positive / credit — emerald green (withdraw, "+₹" amounts, success).
   static const Color success = Color(0xFF1EA362);
@@ -86,12 +88,13 @@ abstract final class AppGradients {
     colors: <Color>[AppColors.primary, AppColors.primaryDark],
   );
 
-  /// The app canvas — a soft, almost-flat light wash painted once behind every
-  /// screen (scaffolds are transparent), giving the whole app a consistent base.
+  /// The app canvas — a soft lavender wash painted once behind every screen
+  /// (scaffolds are transparent), giving the whole app the design's periwinkle
+  /// base. White cards float on top of it.
   static const LinearGradient canvas = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: <Color>[Color(0xFFFAFAFB), AppColors.background],
+    colors: <Color>[Color(0xFFE9E7F6), Color(0xFFF1F0FA)],
   );
 }
 
@@ -119,7 +122,7 @@ abstract final class AppDecorations {
         borderRadius: radius ?? BorderRadius.circular(24),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x33E63329),
+            color: Color(0x33F97316),
             blurRadius: 24,
             offset: Offset(0, 10),
           ),
