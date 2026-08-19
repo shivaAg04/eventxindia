@@ -54,3 +54,13 @@ export {
   recomputeMetricsOnEventWrite,
   recomputeMetricsScheduled,
 } from "./metrics/triggers";
+
+// Student track record: per-student counters (`studentStats/{studentId}`) —
+// events approved for + attendance completed — recomputed on any application or
+// attendance write. This is the trusted read surface a vendor uses to judge an
+// applicant's history, since per-document rules stop them querying another
+// vendor's applications/attendance themselves.
+export {
+  recomputeStudentStatsOnApplicationWrite,
+  recomputeStudentStatsOnAttendanceWrite,
+} from "./studentStats/triggers";

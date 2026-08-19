@@ -35,6 +35,7 @@ import 'features/earnings/presentation/bloc/earnings_bloc.dart';
 import 'features/events/presentation/bloc/event_discovery_bloc.dart';
 import 'features/events/presentation/bloc/event_management_bloc.dart';
 import 'features/profile/domain/repositories/profile_repository.dart';
+import 'features/profile/domain/services/student_stats_service.dart';
 import 'features/profile/presentation/bloc/registration_bloc.dart';
 import 'features/profile/presentation/bloc/student_profile_cubit.dart';
 import 'features/applications/presentation/bloc/student_applications_cubit.dart';
@@ -179,6 +180,8 @@ class _RoutedAppState extends State<_RoutedApp> {
       getEvent: (String eventId) => getIt<GetEvent>()(eventId),
       watchStudentRatings: (String studentId) =>
           getIt<WatchStudentRatings>()(studentId),
+      watchStudentStats: (String studentId) =>
+          getIt<StudentStatsService>().watchStudentStats(studentId),
       watchEventRatings: (String eventId) =>
           getIt<WatchEventRatings>()(eventId),
       rateStudent: ({

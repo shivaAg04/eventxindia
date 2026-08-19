@@ -18,6 +18,7 @@ import '../../../profile/presentation/screens/vendor_profile_screen.dart';
 import '../../../staff/presentation/bloc/staff_cubit.dart';
 import '../../../staff/presentation/screens/staff_screen.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
+import '../../../profile/domain/entities/student_stats.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/event_status_policy.dart';
 import '../bloc/event_management_bloc.dart';
@@ -56,6 +57,7 @@ class ManageEventsScreen extends StatelessWidget {
     required this.getStudent,
     required this.watchEventRatings,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.rateStudent,
     required this.createStaffCubit,
     super.key,
@@ -99,6 +101,10 @@ class ManageEventsScreen extends StatelessWidget {
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
 
+  /// Streams an applicant's trusted track-record counters, forwarded to the
+  /// applicant detail view (events approved for, attendance completed).
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
+
   /// Submits a one-time student rating from the attendance roster (R rating).
   final RateStudentFn rateStudent;
 
@@ -115,6 +121,7 @@ class ManageEventsScreen extends StatelessWidget {
         getStudent: getStudent,
         watchEventRatings: watchEventRatings,
         watchStudentRatings: watchStudentRatings,
+        watchStudentStats: watchStudentStats,
         rateStudent: rateStudent,
         createStaffCubit: createStaffCubit,
       ),
@@ -131,6 +138,7 @@ class _ManageEventsView extends StatelessWidget {
     required this.getStudent,
     required this.watchEventRatings,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.rateStudent,
     required this.createStaffCubit,
   });
@@ -146,6 +154,10 @@ class _ManageEventsView extends StatelessWidget {
   final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+
+  /// Streams an applicant's trusted track-record counters, forwarded to the
+  /// applicant detail view (events approved for, attendance completed).
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
   final RateStudentFn rateStudent;
 
   void _openCreate(BuildContext context) {
@@ -242,6 +254,7 @@ class _ManageEventsView extends StatelessWidget {
                   getStudent: getStudent,
                   watchEventRatings: watchEventRatings,
                   watchStudentRatings: watchStudentRatings,
+                  watchStudentStats: watchStudentStats,
                   rateStudent: rateStudent,
                   emptyMessage: 'You have no active events yet.',
                 ),
@@ -254,6 +267,7 @@ class _ManageEventsView extends StatelessWidget {
                   getStudent: getStudent,
                   watchEventRatings: watchEventRatings,
                   watchStudentRatings: watchStudentRatings,
+                  watchStudentStats: watchStudentStats,
                   rateStudent: rateStudent,
                   emptyMessage: 'No closed or completed events yet.',
                 ),
@@ -277,6 +291,7 @@ class _EventList extends StatelessWidget {
     required this.getStudent,
     required this.watchEventRatings,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.rateStudent,
     required this.emptyMessage,
   });
@@ -292,6 +307,10 @@ class _EventList extends StatelessWidget {
   final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+
+  /// Streams an applicant's trusted track-record counters, forwarded to the
+  /// applicant detail view (events approved for, attendance completed).
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
   final RateStudentFn rateStudent;
   final String emptyMessage;
 
@@ -312,6 +331,7 @@ class _EventList extends StatelessWidget {
         getStudent: getStudent,
         watchEventRatings: watchEventRatings,
         watchStudentRatings: watchStudentRatings,
+        watchStudentStats: watchStudentStats,
         rateStudent: rateStudent,
       ),
     );
@@ -333,6 +353,7 @@ class _EventTile extends StatelessWidget {
     required this.getStudent,
     required this.watchEventRatings,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.rateStudent,
   });
 
@@ -347,6 +368,10 @@ class _EventTile extends StatelessWidget {
   final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+
+  /// Streams an applicant's trusted track-record counters, forwarded to the
+  /// applicant detail view (events approved for, attendance completed).
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
   final RateStudentFn rateStudent;
 
   void _changeStatus(BuildContext context, EventStatus status) {
@@ -369,6 +394,7 @@ class _EventTile extends StatelessWidget {
             vendorId: vendorId,
             getStudent: getStudent,
             watchStudentRatings: watchStudentRatings,
+            watchStudentStats: watchStudentStats,
           ),
         ),
       ),

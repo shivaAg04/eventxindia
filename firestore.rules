@@ -282,12 +282,23 @@ service cloud.firestore {
       // check-in transaction can test existence before writing. Reads of an
       // EXISTING record stay restricted to the owning student, the owning
       // event's vendor, or an Admin.
+      // An APPROVED vendor (or a staff member reviewing applicants for one) may
+      // also read any student's records, so the applicant detail screen can show
+      // that candidate's track record — how many events they turned up to and
+      // how many they completed (R5.3, R5.4). Firestore has no field-level read
+      // rules, so this necessarily exposes the check-in/out times and geo behind
+      // those counts; the alternative is the trusted
+      // `studentStats/{studentId}` aggregate (Cloud Functions
+      // `recomputeStudentStats*`), which exposes only the two counts. Tighten
+      // this back to the owning vendor when that aggregator is deployed.
       allow read: if isSignedIn() && (
         resource == null
         || resource.data.studentId == request.auth.uid
         || eventOwner(resource.data.eventId) == request.auth.uid
         || (staffCanAttendance()
             && eventOwner(resource.data.eventId) == staffVendorId())
+        || requesterIsApprovedVendor()
+        || staffCanApplicants()
         || isAdmin()
       );
 
@@ -396,6 +407,28 @@ service cloud.firestore {
     // ---------------------------------------------------------------------
     match /metrics/{docId} {
       allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // studentStats/{studentId}
+    //  - A student's aggregated track record: how many events they were
+    //    approved for and how many they completed attendance for. Recomputed by
+    //    the trusted `recomputeStudentStats*` Cloud Functions on any
+    //    application/attendance write.
+    //  - read: the student themselves, any APPROVED vendor (they judge an
+    //    applicant's history while reviewing them — the same access the
+    //    `ratings` collection already grants), a staff member reviewing
+    //    applicants for their vendor, or an Admin. Only the two counters live
+    //    here, never the underlying events, times, or geo.
+    //  - NO client writes — the counters must be tamper-proof, so they are
+    //    written only via the Admin SDK.
+    // ---------------------------------------------------------------------
+    match /studentStats/{studentId} {
+      allow read: if isOwner(studentId)
+        || requesterIsApprovedVendor()
+        || staffCanApplicants()
+        || isAdmin();
       allow write: if false;
     }
 

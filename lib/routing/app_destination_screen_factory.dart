@@ -36,6 +36,7 @@ import '../features/staff/domain/entities/staff_member.dart';
 import '../features/staff/presentation/bloc/staff_cubit.dart';
 import '../features/staff/presentation/screens/staff_portal_screen.dart';
 import '../features/ratings/domain/entities/rating_entry.dart';
+import '../features/profile/domain/entities/student_stats.dart';
 import '../core/error/failure.dart';
 import '../core/result/result.dart';
 import '../core/value_objects/rating.dart';
@@ -80,6 +81,7 @@ class AppDestinationScreenFactory {
     required this.createRegistrationBloc,
     required this.getEvent,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.watchEventRatings,
     required this.rateStudent,
     required this.createPlatformConfigCubit,
@@ -168,6 +170,11 @@ class AppDestinationScreenFactory {
   /// average + per-event, admin student drill-down) (R rating).
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+
+  /// Streams a single student's trusted track-record counters — events approved
+  /// for and attendance completed — shown to a vendor/staff member reviewing
+  /// them as an applicant (R5.3, R5.4).
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
 
   /// Streams the ratings recorded for a single event (vendor attendance +
   /// admin event drill-down) (R rating).
@@ -261,6 +268,7 @@ class AppDestinationScreenFactory {
             watchEventApplications: watchEventApplications,
             watchEventRatings: watchEventRatings,
             watchStudentRatings: watchStudentRatings,
+            watchStudentStats: watchStudentStats,
             rateStudent: rateStudent,
             createStaffCubit: createStaffCubit,
           ),
@@ -287,6 +295,7 @@ class AppDestinationScreenFactory {
           createApplicationBloc: createApplicationBloc,
           getStudent: profileRepository.getStudent,
           watchStudentRatings: watchStudentRatings,
+          watchStudentStats: watchStudentStats,
           watchEventApplications: watchEventApplications,
           watchEventAttendance: watchEventAttendance,
           watchEventRatings: watchEventRatings,
@@ -357,6 +366,7 @@ class _VendorEventsLoader extends StatelessWidget {
     required this.watchEventApplications,
     required this.watchEventRatings,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.rateStudent,
     required this.createStaffCubit,
   });
@@ -373,6 +383,7 @@ class _VendorEventsLoader extends StatelessWidget {
   final Stream<List<RatingEntry>> Function(String eventId) watchEventRatings;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
   final Future<Result<RatingEntry, Failure>> Function({
     required String eventId,
     required String studentId,
@@ -407,6 +418,7 @@ class _VendorEventsLoader extends StatelessWidget {
             getStudent: profileRepository.getStudent,
             watchEventRatings: watchEventRatings,
             watchStudentRatings: watchStudentRatings,
+            watchStudentStats: watchStudentStats,
             rateStudent: rateStudent,
             createStaffCubit: createStaffCubit,
           ),

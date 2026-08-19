@@ -5,6 +5,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/application_status.dart';
 import '../../../profile/domain/entities/student.dart';
+import '../../../profile/domain/entities/student_stats.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
 import '../../domain/entities/application.dart';
 import '../../domain/usecases/decide_application.dart';
@@ -29,6 +30,7 @@ class ApplicantListScreen extends StatefulWidget {
     required this.vendorId,
     required this.getStudent,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     super.key,
   });
 
@@ -45,6 +47,10 @@ class ApplicantListScreen extends StatefulWidget {
   /// candidate's overall average rating.
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+
+  /// Streams an applicant's trusted track-record counters (events approved for,
+  /// attendance completed), so the detail view can show their history.
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
 
   @override
   State<ApplicantListScreen> createState() => _ApplicantListScreenState();
@@ -114,6 +120,7 @@ class _ApplicantListScreenState extends State<ApplicantListScreen> {
                       vendorId: widget.vendorId,
                       getStudent: widget.getStudent,
                       watchStudentRatings: widget.watchStudentRatings,
+                      watchStudentStats: widget.watchStudentStats,
                     );
                   },
                 ),
@@ -141,6 +148,7 @@ class _ApplicantTile extends StatelessWidget {
     required this.vendorId,
     required this.getStudent,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     super.key,
   });
 
@@ -149,6 +157,7 @@ class _ApplicantTile extends StatelessWidget {
   final Future<Result<Student, Failure>> Function(String uid) getStudent;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
 
   @override
   Widget build(BuildContext context) {
@@ -169,6 +178,7 @@ class _ApplicantTile extends StatelessWidget {
             application: application,
             getStudent: getStudent,
             ratingsStream: watchStudentRatings(application.studentId),
+            statsStream: watchStudentStats(application.studentId),
           ),
         ),
       ),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/value_objects/application_status.dart';
 import '../../../../core/value_objects/money.dart';
 import '../../../profile/domain/entities/student.dart';
+import '../../../profile/domain/entities/student_stats.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
 import '../../../ratings/domain/rating_stats.dart';
 import '../../../ratings/presentation/widgets/star_rating_bar.dart';
@@ -18,6 +20,12 @@ import '../../domain/entities/application.dart';
 /// vendor to protect the student's contact detail (privacy). It also shows the
 /// application status and the event the application is for.
 ///
+/// Alongside the profile it shows the candidate's **track record** — how many
+/// events they have been approved for platform-wide and how many of those they
+/// completed attendance for — read from the trusted `StudentStatsService`. A
+/// vendor cannot compute that themselves: security rules scope
+/// application/attendance reads to their own events.
+///
 /// While the profile loads, or if it cannot be read (e.g. the record predates
 /// vendor read access), it falls back to the basic snapshot the vendor already
 /// holds on the [Application] so the vendor can still identify the candidate.
@@ -26,6 +34,7 @@ class ApplicantDetailScreen extends StatelessWidget {
     required this.application,
     required this.getStudent,
     required this.ratingsStream,
+    required this.statsStream,
     super.key,
   });
 
@@ -35,6 +44,10 @@ class ApplicantDetailScreen extends StatelessWidget {
   /// Live stream of the ratings this applicant has received, so the vendor sees
   /// the candidate's overall average rating while reviewing them.
   final Stream<List<RatingEntry>> ratingsStream;
+
+  /// Live stream of this applicant's trusted track-record counters (events
+  /// approved for, attendance completed).
+  final Stream<StudentStats> statsStream;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +67,7 @@ class ApplicantDetailScreen extends StatelessWidget {
             application: application,
             student: student,
             ratingsStream: ratingsStream,
+            statsStream: statsStream,
           );
         },
       ),
@@ -68,11 +82,13 @@ class _DetailBody extends StatelessWidget {
     required this.application,
     required this.student,
     required this.ratingsStream,
+    required this.statsStream,
   });
 
   final Application application;
   final Student? student;
   final Stream<List<RatingEntry>> ratingsStream;
+  final Stream<StudentStats> statsStream;
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +158,8 @@ class _DetailBody extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _RatingCard(ratingsStream: ratingsStream),
+        const SizedBox(height: 16),
+        _TrackRecordCard(statsStream: statsStream),
         const SizedBox(height: 16),
         _DetailCard(title: 'Student', rows: profileRows),
         const SizedBox(height: 16),
@@ -256,6 +274,236 @@ class _RatingCard extends StatelessWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// A card showing the applicant's platform-wide track record: how many events
+/// they were approved for and how many they completed attendance for, plus the
+/// share of approved events they actually saw through.
+///
+/// Both counters come from the trusted `StudentStatsService`
+/// (`studentStats/{studentId}`, maintained by Cloud Functions) — the vendor
+/// cannot derive them, since per-document rules scope application/attendance
+/// reads to their own events. Only the counts are exposed here, never the
+/// underlying events, times, or locations.
+///
+/// Until the aggregator has written anything for this student the stream yields
+/// zeroed counters, which render as an explicit "No event history yet" rather
+/// than a misleading 0%.
+class _TrackRecordCard extends StatelessWidget {
+  const _TrackRecordCard({required this.statsStream});
+
+  final Stream<StudentStats> statsStream;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: StreamBuilder<StudentStats>(
+          stream: statsStream,
+          builder: (
+            BuildContext context,
+            AsyncSnapshot<StudentStats> snapshot,
+          ) {
+            final StudentStats? stats = snapshot.data;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text('Track record', style: theme.textTheme.titleMedium),
+                const Divider(height: 20),
+                // A read failure (offline, or rules denying the counters) must
+                // not leave the card spinning forever: say so, and let the
+                // vendor judge the applicant on the rest of the screen.
+                if (snapshot.hasError)
+                  Text(
+                    'History unavailable right now.',
+                    key: const ValueKey<String>('stat-error'),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                else if (stats == null)
+                  Text(
+                    'Loading history…',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                else if (stats.isEmpty)
+                  Text(
+                    'No event history yet — this is their first event.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                else ...<Widget>[
+                  // IntrinsicHeight bounds the row so `stretch` can give all
+                  // three tiles a common height; without it the row sits in an
+                  // unbounded ListView and `stretch` forces infinite height.
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        _CountTile(
+                          key: const ValueKey<String>('stat-events'),
+                          icon: Icons.event_note_rounded,
+                          color: const Color(0xFF3B82F6),
+                          value: '${stats.eventsParticipated}',
+                          label: 'Events participated',
+                        ),
+                        const SizedBox(width: 8),
+                        _CountTile(
+                          key: const ValueKey<String>('stat-attendance'),
+                          icon: Icons.task_alt_rounded,
+                          color: AppColors.success,
+                          value: '${stats.attendanceCompleted}',
+                          label: 'Attendance marked',
+                        ),
+                        const SizedBox(width: 8),
+                        _CountTile(
+                          key: const ValueKey<String>('stat-rate'),
+                          icon: Icons.track_changes_rounded,
+                          color: AppColors.accent,
+                          value: _rate(stats),
+                          label: 'Attendance rate',
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (stats.eventsParticipated > 0) ...<Widget>[
+                    const SizedBox(height: 14),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: stats.attendanceCompleted /
+                            stats.eventsParticipated,
+                        minHeight: 8,
+                        backgroundColor: AppColors.fieldFill,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Text(
+                    _summary(stats),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// The share of approved events the student actually completed, as a whole
+  /// percentage — the same figure the student's own profile shows as
+  /// "Attendance", and computed with the same formula so the two agree.
+  ///
+  /// Renders as an em dash when there are no approved events, since a rate with
+  /// no denominator would be meaningless rather than 0%.
+  static String _rate(StudentStats stats) {
+    if (stats.eventsParticipated == 0) return '—';
+    return '${_ratePercent(stats)}%';
+  }
+
+  static int _ratePercent(StudentStats stats) =>
+      ((stats.attendanceCompleted / stats.eventsParticipated) * 100).round();
+
+  /// A one-line reading of the two counters, e.g.
+  /// "Completed attendance for 11 of 12 events on record (92%)."
+  ///
+  /// Says "on record" rather than naming the denominator's source, so the line
+  /// stays accurate whichever `StudentStatsService` implementation is wired.
+  /// The percentage is dropped when the denominator is zero, so it never divides
+  /// by zero or implies a rate that has no denominator.
+  static String _summary(StudentStats stats) {
+    if (stats.eventsParticipated == 0) {
+      return 'Completed attendance for ${stats.attendanceCompleted} '
+          'event(s).';
+    }
+    return 'Completed attendance for ${stats.attendanceCompleted} of '
+        '${stats.eventsParticipated} events on record '
+        '(${_ratePercent(stats)}%).';
+  }
+}
+
+/// One tinted stat tile — icon badge, big number, caption — used by
+/// [_TrackRecordCard].
+///
+/// Deliberately mirrors the stat cards on the student's own profile so the same
+/// numbers read the same way on both sides of the app. Expands to fill its share
+/// of the row, and the value is wrapped in a [FittedBox] so a wide value (e.g.
+/// "100%") shrinks rather than overflowing a narrow tile.
+class _CountTile extends StatelessWidget {
+  const _CountTile({
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.label,
+    super.key,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            Container(
+              height: 34,
+              width: 34,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                height: 1.2,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -62,6 +62,12 @@ class StudentProfileScreen extends StatelessWidget {
                 onPressed: () =>
                     context.read<AuthBloc>().add(const SignedOut()),
               ),
+              mascot: Image.asset(
+                'assets/images/profile.png',
+                width: 190,
+                height: 150,
+                fit: BoxFit.fitWidth,
+              ),
             ),
             Expanded(
               child: BlocBuilder<StudentProfileCubit, StudentProfileState>(
@@ -246,43 +252,48 @@ class _StatsRow extends StatelessWidget {
         final int attendancePct =
             approved == 0 ? 0 : ((completed / approved) * 100).round();
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            _StatCard(
-              icon: Icons.star_rounded,
-              color: AppColors.primary,
-              value: formatAverage(average),
-              label: 'Average Rating',
-              footer: average == null
-                  ? const _NoRatings()
-                  : StarRatingBar(stars: average, size: 12),
-            ),
-            const SizedBox(width: 8),
-            _StatCard(
-              icon: Icons.event_note_rounded,
-              color: const Color(0xFF3B82F6),
-              value: '$completed',
-              label: 'Events Completed',
-              footerText: 'Keep going!',
-            ),
-            const SizedBox(width: 8),
-            _StatCard(
-              icon: Icons.account_balance_wallet_rounded,
-              color: AppColors.success,
-              value: earnings,
-              label: 'Total Earnings',
-              footerText: 'All time',
-            ),
-            const SizedBox(width: 8),
-            _StatCard(
-              icon: Icons.track_changes_rounded,
-              color: AppColors.accent,
-              value: '$attendancePct%',
-              label: 'Attendance',
-              footerText: 'Keep it up!',
-            ),
-          ],
+        // IntrinsicHeight bounds the row's height so `stretch` can give every
+        // card the same height; without it the row sits in the unbounded
+        // ListView and `stretch` forces an infinite-height constraint.
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _StatCard(
+                icon: Icons.star_rounded,
+                color: AppColors.primary,
+                value: formatAverage(average),
+                label: 'Average Rating',
+                footer: average == null
+                    ? const _NoRatings()
+                    : StarRatingBar(stars: average, size: 12),
+              ),
+              const SizedBox(width: 8),
+              _StatCard(
+                icon: Icons.event_note_rounded,
+                color: const Color(0xFF3B82F6),
+                value: '$completed',
+                label: 'Events Completed',
+                footerText: 'Keep going!',
+              ),
+              const SizedBox(width: 8),
+              _StatCard(
+                icon: Icons.account_balance_wallet_rounded,
+                color: AppColors.success,
+                value: earnings,
+                label: 'Total Earnings',
+                footerText: 'All time',
+              ),
+              const SizedBox(width: 8),
+              _StatCard(
+                icon: Icons.track_changes_rounded,
+                color: AppColors.accent,
+                value: '$attendancePct%',
+                label: 'Attendance',
+                footerText: 'Keep it up!',
+              ),
+            ],
+          ),
         );
       },
     );

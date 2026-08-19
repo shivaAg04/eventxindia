@@ -15,6 +15,7 @@ import '../../../events/domain/entities/event.dart';
 import '../../../events/presentation/screens/event_detail_screen.dart';
 import '../../../profile/domain/entities/student.dart';
 import '../../../ratings/domain/entities/rating_entry.dart';
+import '../../../profile/domain/entities/student_stats.dart';
 import '../../domain/entities/staff_member.dart';
 
 /// Submits a one-time student rating (mirrors the vendor-side signature).
@@ -41,6 +42,7 @@ class StaffPortalScreen extends StatelessWidget {
     required this.createApplicationBloc,
     required this.getStudent,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.watchEventApplications,
     required this.watchEventAttendance,
     required this.watchEventRatings,
@@ -57,6 +59,10 @@ class StaffPortalScreen extends StatelessWidget {
   final Future<Result<Student, Failure>> Function(String uid) getStudent;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+
+  /// Streams an applicant's trusted track-record counters, forwarded to the
+  /// applicant detail view (events approved for, attendance completed).
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
   final Stream<List<AttendanceRecord>> Function(String eventId)
@@ -92,6 +98,7 @@ class StaffPortalScreen extends StatelessWidget {
             createApplicationBloc: createApplicationBloc,
             getStudent: getStudent,
             watchStudentRatings: watchStudentRatings,
+            watchStudentStats: watchStudentStats,
             watchEventApplications: watchEventApplications,
             watchEventAttendance: watchEventAttendance,
             watchEventRatings: watchEventRatings,
@@ -110,6 +117,7 @@ class _EventsList extends StatelessWidget {
     required this.createApplicationBloc,
     required this.getStudent,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.watchEventApplications,
     required this.watchEventAttendance,
     required this.watchEventRatings,
@@ -122,6 +130,10 @@ class _EventsList extends StatelessWidget {
   final Future<Result<Student, Failure>> Function(String uid) getStudent;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+
+  /// Streams an applicant's trusted track-record counters, forwarded to the
+  /// applicant detail view (events approved for, attendance completed).
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
   final Stream<List<AttendanceRecord>> Function(String eventId)
@@ -181,6 +193,7 @@ class _EventsList extends StatelessWidget {
                   createApplicationBloc: createApplicationBloc,
                   getStudent: getStudent,
                   watchStudentRatings: watchStudentRatings,
+                  watchStudentStats: watchStudentStats,
                   watchEventApplications: watchEventApplications,
                   watchEventAttendance: watchEventAttendance,
                   watchEventRatings: watchEventRatings,
@@ -210,6 +223,7 @@ class _EventCard extends StatelessWidget {
     required this.createApplicationBloc,
     required this.getStudent,
     required this.watchStudentRatings,
+    required this.watchStudentStats,
     required this.watchEventApplications,
     required this.watchEventAttendance,
     required this.watchEventRatings,
@@ -222,6 +236,10 @@ class _EventCard extends StatelessWidget {
   final Future<Result<Student, Failure>> Function(String uid) getStudent;
   final Stream<List<RatingEntry>> Function(String studentId)
       watchStudentRatings;
+
+  /// Streams an applicant's trusted track-record counters, forwarded to the
+  /// applicant detail view (events approved for, attendance completed).
+  final Stream<StudentStats> Function(String studentId) watchStudentStats;
   final Stream<List<Application>> Function(String eventId)
       watchEventApplications;
   final Stream<List<AttendanceRecord>> Function(String eventId)
@@ -238,6 +256,7 @@ class _EventCard extends StatelessWidget {
           vendorId: staff.vendorId,
           getStudent: getStudent,
           watchStudentRatings: watchStudentRatings,
+          watchStudentStats: watchStudentStats,
         ),
       ),
     ));

@@ -136,6 +136,8 @@ import '../../features/notifications/data/repositories/firebase_notification_ser
     as _i961;
 import '../../features/notifications/domain/services/notification_service.dart'
     as _i569;
+import '../../features/profile/data/datasources/firestore_student_stats_data_source.dart'
+    as _i498;
 import '../../features/profile/data/repositories/firebase_storage_repository_impl.dart'
     as _i702;
 import '../../features/profile/data/repositories/firestore_profile_repository_impl.dart'
@@ -144,6 +146,8 @@ import '../../features/profile/domain/repositories/profile_repository.dart'
     as _i894;
 import '../../features/profile/domain/repositories/storage_repository.dart'
     as _i50;
+import '../../features/profile/domain/services/student_stats_service.dart'
+    as _i866;
 import '../../features/profile/presentation/bloc/registration_bloc.dart'
     as _i671;
 import '../../features/profile/presentation/bloc/student_profile_cubit.dart'
@@ -244,6 +248,10 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i962.FirestoreEventDataSource>(
       () => _i962.FirestoreEventDataSource(gh<_i974.FirebaseFirestore>()),
+    );
+    gh.factory<_i498.FirestoreStudentStatsDataSource>(
+      () =>
+          _i498.FirestoreStudentStatsDataSource(gh<_i974.FirebaseFirestore>()),
     );
     gh.factory<_i648.FirestoreRatingDataSource>(
       () => _i648.FirestoreRatingDataSource(gh<_i974.FirebaseFirestore>()),
@@ -363,6 +371,9 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i758.FirestorePlatformConfigRepositoryImpl(
         gh<_i321.FirestorePlatformConfigDataSource>(),
       ),
+    );
+    gh.lazySingleton<_i866.StudentStatsService>(
+      () => useCaseModule.studentStatsService(gh<_i477.AttendanceRepository>()),
     );
     gh.lazySingleton<_i894.ProfileRepository>(
       () => _i652.FirestoreProfileRepositoryImpl(gh<_i974.FirebaseFirestore>()),

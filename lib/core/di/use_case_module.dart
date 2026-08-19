@@ -28,6 +28,8 @@ import '../../features/auth/domain/usecases/verify_otp.dart';
 import '../../features/auth/domain/usecases/watch_session.dart';
 import '../../features/events/domain/repositories/event_repository.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
+import '../../features/profile/domain/services/attendance_derived_student_stats_service.dart';
+import '../../features/profile/domain/services/student_stats_service.dart';
 import '../../features/events/domain/usecases/change_event_status.dart';
 import '../../features/events/domain/usecases/create_event.dart';
 import '../../features/events/domain/usecases/set_event_approval.dart';
@@ -252,6 +254,18 @@ abstract class UseCaseModule {
   @lazySingleton
   WatchAllWithdrawals watchAllWithdrawals(WalletRepository repository) =>
       WatchAllWithdrawals(repository: repository);
+
+  // --- Student track record (R5.3, R5.4) -----------------------------------
+
+  /// The applicant track record a vendor sees, derived in-app from the
+  /// student's attendance records.
+  ///
+  /// Swap this for `FirestoreStudentStatsService` (the trusted, aggregate-only
+  /// source) once the `recomputeStudentStats*` Cloud Functions are deployed —
+  /// nothing outside this provider changes.
+  @lazySingleton
+  StudentStatsService studentStatsService(AttendanceRepository repository) =>
+      AttendanceDerivedStudentStatsService(attendanceRepository: repository);
 
   // --- Ratings -------------------------------------------------------------
 
